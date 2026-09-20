@@ -480,7 +480,7 @@
   function applyCustomizationSettings() {
     const textColor = document.getElementById('setting-text-color')?.value || '#ffffff';
     const textSecColor = document.getElementById('setting-text-sec-color')?.value || '#a7a7a7';
-    const appFont = document.getElementById('setting-app-font')?.value || "'Outfit', sans-serif";
+    const appFont = document.getElementById('setting-app-font')?.value || "'Inter', sans-serif";
     const starColor = document.getElementById('setting-space-star-color')?.value || '#ffffff';
     const cometColor = document.getElementById('setting-space-comet-color')?.value || '#00f3ff';
     const bgColor = document.getElementById('setting-space-bg-color')?.value || '#0e1830';

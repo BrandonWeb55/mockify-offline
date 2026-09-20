@@ -57,7 +57,7 @@
             spaceCometColor: '#00f3ff',
             spaceBgColor: '#0e1830',
             coverSpin: true,
-            appFont: "'Outfit', sans-serif"
+            appFont: "'Inter', sans-serif"
           });
         case 'write-settings':
           LocalStore.set('settings', args[0]);
@@ -143,7 +143,7 @@
       spaceCometColor: '#00f3ff',
       spaceBgColor: '#0e1830',
       coverSpin: true,
-      appFont: "'Outfit', sans-serif"
+      appFont: "'Inter', sans-serif"
     },
   };
   window.S = S;
