@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mockify-offline-v1.0';
+const CACHE_NAME = 'mockify-offline-v1.2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

@@ -1996,23 +1996,8 @@
       // Audio Bass / Kick Pulse value [0.0 - 1.0]
       const pulse = getBassPulse();
 
-      // Render cosmic background with Space Glow Tint nebula gradient
-      const tintHex = S.settings.spaceBgColor || document.getElementById('setting-space-bg-color')?.value || '#0e1830';
-      const tintRgb = hexToRgb(tintHex);
-      
-      // Cosmic radial nebula glow from top center — expands and breathes with bass pulse
-      const nebulaScale = 1 + pulse * 0.22;
-      const nebulaAlpha = Math.min(1, 0.85 + pulse * 0.15);
-      const bgGrad = ctx.createRadialGradient(
-        width * 0.5, height * 0.18, 0,
-        width * 0.5, height * 0.4, Math.max(width, height) * (0.85 * nebulaScale)
-      );
-      bgGrad.addColorStop(0, `rgba(${tintRgb.r}, ${tintRgb.g}, ${tintRgb.b}, ${nebulaAlpha})`);
-      bgGrad.addColorStop(0.4, `rgba(${Math.round(tintRgb.r * 0.4)}, ${Math.round(tintRgb.g * 0.4)}, ${Math.round(tintRgb.b * 0.4)}, 0.6)`);
-      bgGrad.addColorStop(0.75, `rgba(${Math.round(tintRgb.r * 0.12)}, ${Math.round(tintRgb.g * 0.12)}, ${Math.round(tintRgb.b * 0.12)}, 1)`);
-      bgGrad.addColorStop(1, `rgba(${Math.round(tintRgb.r * 0.04)}, ${Math.round(tintRgb.g * 0.04)}, ${Math.round(tintRgb.b * 0.04)}, 1)`);
-      
-      ctx.fillStyle = bgGrad;
+      // Render clear uniform cosmic background with no top-heavy blurry nebula blob
+      ctx.fillStyle = '#030408';
       ctx.fillRect(0, 0, width, height);
 
       const brightMult = (S.settings.spaceBrightness || 60) / 50;

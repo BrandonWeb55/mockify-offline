@@ -79,7 +79,7 @@
       height: 100vh;
       z-index: 0;
       pointer-events: none;
-      background: radial-gradient(ellipse at 50% 15%, #0e1830 0%, rgb(2, 3, 6) 65%, rgb(1, 1, 2) 100%);
+      background: #030408;
       display: none;
     }
 

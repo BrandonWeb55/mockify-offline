@@ -1087,7 +1087,7 @@
       const artist = document.getElementById('mnp-opt-artist');
       if (thumb) thumb.src = t ? (t.thumbnail || '') : '';
       if (title) title.textContent = t ? (t.title || 'Unknown Title') : 'No Track Playing';
-      if (artist) artist.textContent = t ? (t.artist || 'Unknown Artist') : 'Mockify';
+      if (artist) artist.textContent = t ? (t.artist || 'Unknown Artist') : 'Offline Music';
       sheet.classList.add('open');
     }
 
