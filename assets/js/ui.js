@@ -519,39 +519,49 @@
   }
 
   async function loadSettings() {
-    S.settings = await ipcRenderer.invoke('read-settings');
-    document.getElementById('setting-quality').value = S.settings.quality || 'high';
+    S.settings = (await ipcRenderer.invoke('read-settings')) || {};
     const savedAccent = S.settings.accent || '#DC143C';
-    document.getElementById('setting-accent').value = savedAccent;
+    const accentEl = document.getElementById('setting-accent');
+    if (accentEl) accentEl.value = savedAccent;
     applyAccentColor(savedAccent);
 
     // Lyrics Settings
-    if (S.settings.lyricSize !== undefined) document.getElementById('setting-lyric-size').value = S.settings.lyricSize;
-    if (S.settings.lyricOpacity !== undefined) document.getElementById('setting-lyric-opacity').value = S.settings.lyricOpacity;
-    if (S.settings.lyricAlign) document.getElementById('setting-lyric-align').value = S.settings.lyricAlign;
-    if (S.settings.lyricFont) document.getElementById('setting-lyric-font').value = S.settings.lyricFont;
-    if (S.settings.lyricStyle) document.getElementById('setting-lyric-style').value = S.settings.lyricStyle;
-    if (S.settings.lyricGlow) document.getElementById('setting-lyric-glow').value = S.settings.lyricGlow;
+    if (S.settings.lyricSize !== undefined && document.getElementById('setting-lyric-size')) document.getElementById('setting-lyric-size').value = S.settings.lyricSize;
+    if (S.settings.lyricOpacity !== undefined && document.getElementById('setting-lyric-opacity')) document.getElementById('setting-lyric-opacity').value = S.settings.lyricOpacity;
+    if (S.settings.lyricAlign && document.getElementById('setting-lyric-align')) document.getElementById('setting-lyric-align').value = S.settings.lyricAlign;
+    if (S.settings.lyricFont && document.getElementById('setting-lyric-font')) document.getElementById('setting-lyric-font').value = S.settings.lyricFont;
+    if (S.settings.lyricStyle && document.getElementById('setting-lyric-style')) document.getElementById('setting-lyric-style').value = S.settings.lyricStyle;
+    if (S.settings.lyricGlow && document.getElementById('setting-lyric-glow')) document.getElementById('setting-lyric-glow').value = S.settings.lyricGlow;
     applyLyricsSettings();
 
     const toastsEl = document.getElementById('setting-toasts');
     if (toastsEl) toastsEl.checked = S.settings.showToasts !== false;
 
     S.settings.coverSpin = S.settings.coverSpin !== undefined ? S.settings.coverSpin : true;
-    document.getElementById('setting-cover-spin').checked = S.settings.coverSpin;
+    const coverSpinEl = document.getElementById('setting-cover-spin');
+    if (coverSpinEl) coverSpinEl.checked = S.settings.coverSpin;
 
-    S.settings.spaceBg = S.settings.spaceBg !== undefined ? S.settings.spaceBg : false;
-    document.getElementById('setting-space-bg').checked = S.settings.spaceBg;
-    if (S.settings.spaceBrightness !== undefined) document.getElementById('setting-space-brightness').value = S.settings.spaceBrightness;
-    if (S.settings.spaceSize !== undefined) document.getElementById('setting-space-size').value = S.settings.spaceSize;
-    if (S.settings.spaceDensity !== undefined) document.getElementById('setting-space-density').value = S.settings.spaceDensity;
-    if (S.settings.spaceComets !== undefined) document.getElementById('setting-space-comets').value = S.settings.spaceComets;
-    if (S.settings.textColor) document.getElementById('setting-text-color').value = S.settings.textColor;
-    if (S.settings.textSecColor) document.getElementById('setting-text-sec-color').value = S.settings.textSecColor;
-    if (S.settings.appFont) document.getElementById('setting-app-font').value = S.settings.appFont;
-    if (S.settings.spaceStarColor) document.getElementById('setting-space-star-color').value = S.settings.spaceStarColor;
-    if (S.settings.spaceCometColor) document.getElementById('setting-space-comet-color').value = S.settings.spaceCometColor;
-    if (S.settings.spaceBgColor) document.getElementById('setting-space-bg-color').value = S.settings.spaceBgColor;
+    // Starry Space Settings - default to true and sanitize ranges
+    S.settings.spaceBg = S.settings.spaceBg !== undefined ? S.settings.spaceBg : true;
+    const spaceBgEl = document.getElementById('setting-space-bg');
+    if (spaceBgEl) spaceBgEl.checked = S.settings.spaceBg;
+
+    if (!S.settings.spaceBrightness || S.settings.spaceBrightness < 20) S.settings.spaceBrightness = 60;
+    if (!S.settings.spaceSize || S.settings.spaceSize < 5) S.settings.spaceSize = 10;
+    if (!S.settings.spaceDensity || S.settings.spaceDensity < 100) S.settings.spaceDensity = 300;
+    if (S.settings.spaceComets === undefined || typeof S.settings.spaceComets !== 'number') S.settings.spaceComets = 5;
+
+    if (document.getElementById('setting-space-brightness')) document.getElementById('setting-space-brightness').value = S.settings.spaceBrightness;
+    if (document.getElementById('setting-space-size')) document.getElementById('setting-space-size').value = S.settings.spaceSize;
+    if (document.getElementById('setting-space-density')) document.getElementById('setting-space-density').value = S.settings.spaceDensity;
+    if (document.getElementById('setting-space-comets')) document.getElementById('setting-space-comets').value = S.settings.spaceComets;
+
+    if (S.settings.textColor && document.getElementById('setting-text-color')) document.getElementById('setting-text-color').value = S.settings.textColor;
+    if (S.settings.textSecColor && document.getElementById('setting-text-sec-color')) document.getElementById('setting-text-sec-color').value = S.settings.textSecColor;
+    if (S.settings.appFont && document.getElementById('setting-app-font')) document.getElementById('setting-app-font').value = S.settings.appFont;
+    if (S.settings.spaceStarColor && document.getElementById('setting-space-star-color')) document.getElementById('setting-space-star-color').value = S.settings.spaceStarColor;
+    if (S.settings.spaceCometColor && document.getElementById('setting-space-comet-color')) document.getElementById('setting-space-comet-color').value = S.settings.spaceCometColor;
+    if (S.settings.spaceBgColor && document.getElementById('setting-space-bg-color')) document.getElementById('setting-space-bg-color').value = S.settings.spaceBgColor;
 
     applyCustomizationSettings();
     applySpaceOptions();
@@ -716,7 +726,7 @@
     ipcRenderer.invoke('write-queue', { queue: S.queue, queueIndex: S.queueIndex });
   }
 
-  document.getElementById('setting-quality').addEventListener('change', e => {
+  document.getElementById('setting-quality')?.addEventListener('change', e => {
     S.settings.quality = e.target.value;
     saveSettings();
     showToast('Quality set to ' + e.target.value);
@@ -1526,24 +1536,25 @@
         updatePlayerBar();
         fetchAndRenderLyrics(state.track);
 
-        const result = await ipcRenderer.invoke('get-audio-url', state.track.id);
-        if (result && result.audioUrl) {
-          S.currentTrack.audioUrl = result.audioUrl;
+        const audioSrc = state.track.audioUrl || state.track.src || state.track.url;
+        if (audioSrc) {
+          S.currentTrack.audioUrl = audioSrc;
           
           const onMeta = () => {
             audio.removeEventListener('loadedmetadata', onMeta);
             if (state.currentTime > 0 && state.currentTime < (audio.duration || 9999)) {
               audio.currentTime = state.currentTime;
               const slider = document.getElementById('progress-slider');
-              slider.value = state.currentTime;
-              document.getElementById('time-cur').textContent = fmt(state.currentTime);
+              if (slider) slider.value = state.currentTime;
+              const curEl = document.getElementById('time-cur');
+              if (curEl) curEl.textContent = fmt(state.currentTime);
               const pct = audio.duration ? (state.currentTime / audio.duration) * 100 : 0;
-              updateSliderFill(slider, pct);
+              if (slider) updateSliderFill(slider, pct);
             }
           };
 
           audio.addEventListener('loadedmetadata', onMeta);
-          audio.src = result.audioUrl;
+          audio.src = audioSrc;
         }
       }
     } catch (e) {
@@ -1565,8 +1576,8 @@
 
     function resizeCanvas() {
       dpr = Math.max(1, window.devicePixelRatio || 1);
-      width = window.innerWidth;
-      height = window.innerHeight;
+      width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth || 360;
+      height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight || 640;
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
       canvas.style.width = width + 'px';
@@ -1576,8 +1587,9 @@
       initStars();
     }
 
-    window.addEventListener('resize', () => {
-      resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('orientationchange', () => {
+      setTimeout(resizeCanvas, 150);
     });
 
     function hexToRgb(hex) {
@@ -1760,9 +1772,9 @@
     let stars = [];
     function initStars() {
       stars = [];
-      const density = S.settings.spaceDensity || 300;
-      const count = Math.floor((width * height) / Math.max(700, 560000 / density));
-      const sizeMult = (S.settings.spaceSize || 10) / 10;
+      const density = Math.max(100, S.settings.spaceDensity || 300);
+      const count = Math.max(80, Math.floor((width * height) / Math.max(700, 560000 / density)));
+      const sizeMult = Math.max(0.7, (S.settings.spaceSize || 10) / 10);
 
       for (let i = 0; i < count; i++) {
         const raw = Math.random();
@@ -2177,8 +2189,9 @@
       }
     };
 
-    // Only start if the theme is active
-    if (document.body.classList.contains('theme-space-active')) {
+    // Start starry space animation
+    if (document.body.classList.contains('theme-space-active') || S.settings.spaceBg !== false) {
+      document.body.classList.add('theme-space-active');
       window._startSpaceBg();
     }
   })();

@@ -1,6 +1,94 @@
+/**
+ * Mockify Offline — Core Application State & Storage Adapter
+ * Pure client-side state and localStorage persistence.
+ */
+(function() {
+  'use strict';
+
   const audio = document.getElementById('audio');
 
+  /* ── Safe Local Storage Adapter ── */
+  const LocalStore = {
+    get: (key, fallback) => {
+      try {
+        const item = localStorage.getItem('mockify_' + key) || localStorage.getItem('mockify-' + key);
+        return item ? JSON.parse(item) : fallback;
+      } catch (e) {
+        return fallback;
+      }
+    },
+    set: (key, value) => {
+      try {
+        localStorage.setItem('mockify_' + key, JSON.stringify(value));
+        localStorage.setItem('mockify-' + key, JSON.stringify(value));
+      } catch (e) {}
+    },
+    remove: (key) => {
+      try {
+        localStorage.removeItem('mockify_' + key);
+        localStorage.removeItem('mockify-' + key);
+      } catch (e) {}
+    }
+  };
+  window.LocalStore = LocalStore;
 
+  /* ── IPC Shim for Zero-Error Web Compatibility ── */
+  const ipcRenderer = {
+    invoke: async (channel, ...args) => {
+      switch (channel) {
+        case 'read-playlists':
+          return LocalStore.get('playlists', []);
+        case 'write-playlists':
+          LocalStore.set('playlists', args[0]);
+          return { success: true };
+        case 'read-settings':
+          return LocalStore.get('settings', {
+            accent: '#DC143C',
+            textColor: '#ffffff',
+            textSecColor: '#a7a7a7',
+            volume: 80,
+            muted: false,
+            spaceBg: true,
+            spaceBrightness: 60,
+            spaceSize: 10,
+            spaceDensity: 300,
+            spaceComets: 5,
+            spaceStarColor: '#ffffff',
+            spaceCometColor: '#00f3ff',
+            spaceBgColor: '#0e1830',
+            coverSpin: true,
+            appFont: "'Outfit', sans-serif"
+          });
+        case 'write-settings':
+          LocalStore.set('settings', args[0]);
+          return { success: true };
+        case 'read-recent':
+          return LocalStore.get('recent', []);
+        case 'write-recent':
+          LocalStore.set('recent', args[0]);
+          return { success: true };
+        case 'read-queue':
+          return LocalStore.get('queue', { queue: [], queueIndex: -1 });
+        case 'write-queue':
+        case 'save-queue':
+          LocalStore.set('queue', args[0]);
+          return { success: true };
+        case 'read-last-state':
+          return LocalStore.get('last-state', null);
+        case 'write-last-state':
+          LocalStore.set('last-state', args[0]);
+          return { success: true };
+        case 'fetch-lyrics':
+          return { plain: '', synced: null };
+        default:
+          return null;
+      }
+    },
+    send: () => {},
+    on: () => {},
+    removeListener: () => {}
+  };
+  window.ipcRenderer = ipcRenderer;
 
   /* ── SVG icon helpers ── */
   const SVG = {
@@ -21,8 +109,9 @@
     repeat: '<svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>',
     repeatOne: '<svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/><text x="12" y="14.5" font-size="8.5" font-weight="bold" text-anchor="middle" fill="currentColor">1</text></svg>',
   };
+  window.SVG = SVG;
 
-  /* ── State ── */
+  /* ── Global State ── */
   const S = {
     view: 'home',
     queue: [],
@@ -38,9 +127,26 @@
     playlists: [],
     viewingPlaylist: null,
     recent: [],
-    showToasts: localStorage.getItem('mockify-toasts') !== 'false',
-    settings: { quality: 'high', accent: '#DC143C', volume: 80, muted: false },
+    showToasts: false,
+    settings: {
+      accent: '#DC143C',
+      textColor: '#ffffff',
+      textSecColor: '#a7a7a7',
+      volume: 80,
+      muted: false,
+      spaceBg: true,
+      spaceBrightness: 60,
+      spaceSize: 10,
+      spaceDensity: 300,
+      spaceComets: 5,
+      spaceStarColor: '#ffffff',
+      spaceCometColor: '#00f3ff',
+      spaceBgColor: '#0e1830',
+      coverSpin: true,
+      appFont: "'Outfit', sans-serif"
+    },
   };
+  window.S = S;
 
   /* ── Utilities ── */
   function fmt(s) {
@@ -49,28 +155,38 @@
     const sec = Math.floor(s % 60);
     return m + ':' + String(sec).padStart(2, '0');
   }
+  window.fmt = fmt;
 
   function updateSliderFill(slider, pct) {
-    slider.style.setProperty('--fill', pct + '%');
+    if (slider) slider.style.setProperty('--fill', pct + '%');
   }
+  window.updateSliderFill = updateSliderFill;
 
   function showToast(msg, type = 'success') {
-    // Notifications removed per user request
+    // Non-intrusive toast logger
+    console.log(`[Toast ${type}]`, msg);
   }
+  window.showToast = showToast;
 
-  /* ── Views ── */
+  /* ── View Switcher ── */
   function showView(name) {
+    // Redirect removed views
+    if (name === 'search') name = 'home';
+
     S.view = name;
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-' + name)?.classList.add('active');
+
     document.querySelectorAll('.nav-item').forEach(n => {
       n.classList.remove('active');
       if (n.hasAttribute('aria-selected')) n.setAttribute('aria-selected', 'false');
     });
+
     document.querySelectorAll(`.nav-item[data-view="${name}"]`).forEach(n => {
       n.classList.add('active');
       if (n.hasAttribute('aria-selected')) n.setAttribute('aria-selected', 'true');
     });
+
     document.querySelectorAll('.playlist-list-item').forEach(p => p.classList.remove('active'));
     
     const btnLyrics = document.getElementById('btn-lyrics');
@@ -79,15 +195,17 @@
       else btnLyrics.classList.remove('active');
     }
 
-    if (name === 'home') renderHome();
-    if (name === 'search' && typeof renderSearchBrowse === 'function') renderSearchBrowse();
-    if (name === 'queue') renderQueue();
+    if (name === 'home' && typeof renderHome === 'function') renderHome();
+    if (name === 'queue' && typeof renderQueue === 'function') renderQueue();
     if (name === 'library' && typeof renderPlaylists === 'function') renderPlaylists();
     if (name === 'lyrics' && S.currentTrack && typeof window.fetchAndRenderLyrics === 'function') {
       window.fetchAndRenderLyrics(S.currentTrack);
     }
   }
+  window.showView = showView;
 
   document.querySelectorAll('.nav-item').forEach(n => {
     n.addEventListener('click', () => showView(n.dataset.view));
   });
+
+})();

@@ -119,10 +119,10 @@
   audio.addEventListener('error', (e) => {
     const err = audio.error;
     const codeMap = {
-      1: 'MEDIA_ERR_ABORTED (user aborted)',
-      2: 'MEDIA_ERR_NETWORK (network error loading stream)',
-      3: 'MEDIA_ERR_DECODE (corrupt or unsupported codec)',
-      4: 'MEDIA_ERR_SRC_NOT_SUPPORTED (format/source not supported or 404/403/502)'
+      1: 'MEDIA_ERR_ABORTED (aborted)',
+      2: 'MEDIA_ERR_NETWORK (network error)',
+      3: 'MEDIA_ERR_DECODE (corrupt or unsupported format)',
+      4: 'MEDIA_ERR_SRC_NOT_SUPPORTED (file not found or unsupported format)'
     };
     console.error('[Audio Error]', {
       code: err?.code,
@@ -134,16 +134,13 @@
     S.isPlaying = false;
     updatePlayerBar();
     if (typeof window.showPlaybackErrorBanner === 'function') {
-      window.showPlaybackErrorBanner(`Audio error: ${codeMap[err?.code] || 'Stream failed to load'}. Check backend server.`);
+      window.showPlaybackErrorBanner(`Audio error: ${codeMap[err?.code] || 'Failed to play audio file'}.`);
     }
   });
 
   function formatSubs(num, text) {
     if (text) return text;
-    if (!num || num <= 0) return 'Verified Artist';
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M subscribers';
-    if (num >= 1000) return Math.round(num / 1000) + 'K subscribers';
-    return num.toLocaleString() + ' subscribers';
+    return 'Offline Library';
   }
 
   /* ── Standalone Miniplayer IPC Synchronization ── */
@@ -1189,25 +1186,7 @@
       });
     }
 
-    const optArtist = document.getElementById('mnp-opt-artist-search');
-    if (optArtist) {
-      optArtist.addEventListener('click', () => {
-        closeMnpOptions();
-        closeNowPlayingOverlay();
-        if (S.currentTrack && S.currentTrack.artist) {
-          if (typeof window.showView === 'function') {
-            window.showView('search');
-            const input = document.getElementById('search-input');
-            if (input) {
-              input.value = S.currentTrack.artist;
-              if (typeof window.performSearch === 'function') {
-                window.performSearch(S.currentTrack.artist);
-              }
-            }
-          }
-        }
-      });
-    }
+
 
     const optCancel = document.getElementById('mnp-opt-cancel-btn');
     if (optCancel) optCancel.addEventListener('click', closeMnpOptions);

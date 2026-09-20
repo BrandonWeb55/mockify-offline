@@ -14,7 +14,7 @@
   - Interactive Starry Space background canvas with dynamic particle animation.
   - Full-screen Now Playing modal with spinning vinyl album art toggle and dynamic theming.
   - Custom typography and theme accent color pickers.
-- **Zero Cloud Streaming Dependency**: No backend server required, no YouTube bot detection blocks, zero buffering.
+- **Zero Cloud Streaming Dependency**: Pure client-side offline audio engine, zero buffering, 100% private.
 
 ---
 
