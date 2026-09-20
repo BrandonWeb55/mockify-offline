@@ -1,0 +1,18 @@
+{
+  "name": "mockify-offline",
+  "version": "1.0.0",
+  "description": "Mockify Offline Music Player PWA",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve ."
+  },
+  "keywords": [
+    "music",
+    "offline",
+    "pwa",
+    "player",
+    "spotify"
+  ],
+  "author": "BrandonWeb55",
+  "license": "MIT"
+}
