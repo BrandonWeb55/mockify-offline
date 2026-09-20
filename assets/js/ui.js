@@ -477,7 +477,8 @@
     document.documentElement.style.setProperty('--accent-glow', hexToRgba(hex, 0.38));
   }
 
-  function applyCustomizationSettings() {
+  let lastBuiltStarColor = null;
+  function applyCustomizationSettings(forceRebuildSprites = false) {
     const textColor = document.getElementById('setting-text-color')?.value || '#ffffff';
     const textSecColor = document.getElementById('setting-text-sec-color')?.value || '#a7a7a7';
     const appFont = document.getElementById('setting-app-font')?.value || "'Inter', sans-serif";
@@ -515,7 +516,10 @@
     S.settings.spaceStarColor = starColor;
     S.settings.spaceCometColor = cometColor;
     S.settings.spaceBgColor = bgColor;
-    if (window._rebuildStarSprites) window._rebuildStarSprites();
+    if (window._rebuildStarSprites && (forceRebuildSprites || lastBuiltStarColor !== starColor)) {
+      lastBuiltStarColor = starColor;
+      window._rebuildStarSprites(forceRebuildSprites);
+    }
   }
 
   async function loadSettings() {
@@ -753,7 +757,7 @@
     showToast(S.settings.coverSpin ? 'Cover spin enabled' : 'Cover spin disabled');
   });
 
-  function applySpaceOptions() {
+  function applySpaceOptions(reinit = false) {
     const brightnessEl = document.getElementById('setting-space-brightness');
     const sizeEl = document.getElementById('setting-space-size');
     const densityEl = document.getElementById('setting-space-density');
@@ -784,19 +788,46 @@
     S.settings.spaceDensity = Number(dVal);
     S.settings.spaceComets = Number(cVal);
 
-    if (window._reinitStars) window._reinitStars();
+    if (reinit && window._reinitStars) {
+      window._reinitStars();
+    }
   }
 
-  ['space-brightness', 'space-size', 'space-density', 'space-comets'].forEach(id => {
-    const el = document.getElementById('setting-' + id);
-    if (el) {
-      el.addEventListener('input', applySpaceOptions);
-      el.addEventListener('change', () => {
-        applySpaceOptions();
-        saveSettings();
-      });
-    }
-  });
+  const spaceBrightEl = document.getElementById('setting-space-brightness');
+  if (spaceBrightEl) {
+    spaceBrightEl.addEventListener('input', () => applySpaceOptions(false));
+    spaceBrightEl.addEventListener('change', () => {
+      applySpaceOptions(false);
+      saveSettings();
+    });
+  }
+
+  const spaceCometEl = document.getElementById('setting-space-comets');
+  if (spaceCometEl) {
+    spaceCometEl.addEventListener('input', () => applySpaceOptions(false));
+    spaceCometEl.addEventListener('change', () => {
+      applySpaceOptions(false);
+      saveSettings();
+    });
+  }
+
+  const spaceSizeEl = document.getElementById('setting-space-size');
+  if (spaceSizeEl) {
+    spaceSizeEl.addEventListener('input', () => applySpaceOptions(false));
+    spaceSizeEl.addEventListener('change', () => {
+      applySpaceOptions(true);
+      saveSettings();
+    });
+  }
+
+  const spaceDensityEl = document.getElementById('setting-space-density');
+  if (spaceDensityEl) {
+    spaceDensityEl.addEventListener('input', () => applySpaceOptions(false));
+    spaceDensityEl.addEventListener('change', () => {
+      applySpaceOptions(true);
+      saveSettings();
+    });
+  }
 
   ['setting-text-color', 'setting-text-sec-color', 'setting-app-font', 'setting-space-star-color', 'setting-space-comet-color', 'setting-space-bg-color'].forEach(id => {
     const el = document.getElementById(id);
@@ -915,43 +946,74 @@
   }
   drawWheelCanvas();
 
-  function updateColorPill(id, hex) {
+  function positionWheelCursor(hue, sat) {
+    if (!cwCursor) return;
+    const w = (cwCanvas && cwCanvas.offsetWidth > 0) ? cwCanvas.offsetWidth : 160;
+    const h = (cwCanvas && cwCanvas.offsetHeight > 0) ? cwCanvas.offsetHeight : 160;
+    const cx = w / 2;
+    const cy = h / 2;
+    const maxR = cx;
+    const r = maxR * (Math.min(100, Math.max(0, sat)) / 100);
+    const rad = (hue || 0) * (Math.PI / 180);
+    const px = Math.round(cx + r * Math.cos(rad));
+    const py = Math.round(cy + r * Math.sin(rad));
+    cwCursor.style.left = px + 'px';
+    cwCursor.style.top = py + 'px';
+  }
+
+  function updateColorTarget(id, hex, isLiveDrag = false) {
     const preview = document.getElementById('preview-' + id);
     const hexLabel = document.getElementById('hex-' + id);
     const input = document.getElementById(id);
     if (preview) preview.style.background = hex;
     if (hexLabel) hexLabel.textContent = hex.toUpperCase();
-    if (input) {
-      input.value = hex;
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-    if (id === 'setting-accent') {
-      applyAccentColor(hex);
+    if (input) input.value = hex;
+
+    if (isLiveDrag) {
+      if (id === 'setting-accent') {
+        applyAccentColor(hex);
+      } else if (id === 'setting-text-color') {
+        document.documentElement.style.setProperty('--text-primary', hex);
+        S.settings.textColor = hex;
+      } else if (id === 'setting-text-sec-color') {
+        document.documentElement.style.setProperty('--text-secondary', hex);
+        S.settings.textSecColor = hex;
+      } else if (id === 'setting-space-comet-color') {
+        S.settings.spaceCometColor = hex;
+      } else if (id === 'setting-space-star-color') {
+        S.settings.spaceStarColor = hex;
+      } else if (id === 'setting-space-bg-color') {
+        S.settings.spaceBgColor = hex;
+        const spaceBgEl = document.getElementById('space-bg');
+        if (spaceBgEl) {
+          const bR = parseInt(hex.slice(1, 3), 16) || 14;
+          const bG = parseInt(hex.slice(3, 5), 16) || 24;
+          const bB = parseInt(hex.slice(5, 7), 16) || 48;
+          const midStop = `rgb(${Math.round(bR * 0.12)}, ${Math.round(bG * 0.12)}, ${Math.round(bB * 0.12)})`;
+          const outerStop = `rgb(${Math.round(bR * 0.04)}, ${Math.round(bG * 0.04)}, ${Math.round(bB * 0.04)})`;
+          spaceBgEl.style.background = `radial-gradient(ellipse at 50% 15%, ${hex} 0%, ${midStop} 65%, ${outerStop} 100%)`;
+        }
+      }
     } else {
-      applyCustomizationSettings();
+      if (id === 'setting-accent') {
+        applyAccentColor(hex);
+      } else {
+        applyCustomizationSettings(id === 'setting-space-star-color');
+      }
     }
   }
 
-  function setWheelColor(hex, fireEvents = true) {
+  function setWheelColor(hex, fireEvents = true, isLiveDrag = false) {
     const hsl = hexToHsl(hex);
     currentHue = hsl.h;
     currentSat = hsl.s;
-    if (cwLightness) cwLightness.value = hsl.l;
+    if (cwLightness && !isLiveDrag) cwLightness.value = hsl.l;
     if (cwHexInput) cwHexInput.value = hex.toUpperCase();
 
-    // Position cursor on wheel
-    if (cwCanvas && cwCursor) {
-      const r = (cwCanvas.offsetWidth / 2) * (currentSat / 100);
-      const rad = currentHue * (Math.PI / 180);
-      const cx = (cwCanvas.offsetWidth / 2) + r * Math.cos(rad);
-      const cy = (cwCanvas.offsetHeight / 2) + r * Math.sin(rad);
-      cwCursor.style.left = cx + 'px';
-      cwCursor.style.top = cy + 'px';
-    }
+    positionWheelCursor(currentHue, currentSat);
 
     if (activeColorTargetId && fireEvents) {
-      updateColorPill(activeColorTargetId, hex);
+      updateColorTarget(activeColorTargetId, hex, isLiveDrag);
     }
   }
 
@@ -965,15 +1027,17 @@
       const curHex = hiddenInput ? hiddenInput.value : '#FFFFFF';
 
       if (cwTitle) cwTitle.textContent = title;
-      setWheelColor(curHex, false);
       if (cwPopover) cwPopover.classList.add('visible');
+      setWheelColor(curHex, false, false);
     });
   });
 
   // Dragging & Picking on canvas with unified Pointer Events (mouse, touch, pen)
   let isDraggingWheel = false;
+  let pendingWheelRaf = null;
+  let latestWheelEvent = null;
 
-  function pickColorFromWheelEvent(e) {
+  function pickColorFromWheelEvent(e, isLiveDrag = false) {
     if (!cwCanvas) return;
     const rect = cwCanvas.getBoundingClientRect();
     const cx = rect.width / 2;
@@ -993,67 +1057,86 @@
     currentHue = deg;
     currentSat = sat;
 
-    const hex = hslToHex(currentHue, currentSat, Number(cwLightness ? cwLightness.value : 50));
-    setWheelColor(hex, true);
+    const lightness = Number(cwLightness ? cwLightness.value : 50);
+    const hex = hslToHex(currentHue, currentSat, lightness);
+    setWheelColor(hex, true, isLiveDrag);
   }
+
+  function processWheelMove() {
+    pendingWheelRaf = null;
+    if (!isDraggingWheel || !latestWheelEvent) return;
+    pickColorFromWheelEvent(latestWheelEvent, true);
+  }
+
+  function handleWheelMove(e) {
+    latestWheelEvent = e;
+    if (!pendingWheelRaf) {
+      pendingWheelRaf = requestAnimationFrame(processWheelMove);
+    }
+  }
+
+  const handlePointerEnd = (e) => {
+    if (isDraggingWheel) {
+      isDraggingWheel = false;
+      if (pendingWheelRaf) {
+        cancelAnimationFrame(pendingWheelRaf);
+        pendingWheelRaf = null;
+      }
+      try {
+        if (e && e.pointerId && cwContainer) cwContainer.releasePointerCapture(e.pointerId);
+      } catch (_) {}
+      const curHex = hslToHex(currentHue, currentSat, Number(cwLightness ? cwLightness.value : 50));
+      updateColorTarget(activeColorTargetId, curHex, false);
+      saveSettings();
+    }
+  };
 
   const cwContainer = document.getElementById('cw-wheel-container');
   if (cwContainer) {
-    // Pointer Events (covers Mouse, Touch, Stylus)
-    cwContainer.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      try { cwContainer.setPointerCapture(e.pointerId); } catch (_) {}
-      isDraggingWheel = true;
-      pickColorFromWheelEvent(e);
-    });
-
-    cwContainer.addEventListener('pointermove', (e) => {
-      if (isDraggingWheel) {
+    if (window.PointerEvent) {
+      cwContainer.addEventListener('pointerdown', (e) => {
         e.preventDefault();
-        pickColorFromWheelEvent(e);
-      }
-    });
+        try { cwContainer.setPointerCapture(e.pointerId); } catch (_) {}
+        isDraggingWheel = true;
+        pickColorFromWheelEvent(e, true);
+      });
 
-    const handlePointerEnd = (e) => {
-      if (isDraggingWheel) {
-        isDraggingWheel = false;
-        try { cwContainer.releasePointerCapture(e.pointerId); } catch (_) {}
-        saveSettings();
-      }
-    };
+      cwContainer.addEventListener('pointermove', (e) => {
+        if (isDraggingWheel) {
+          e.preventDefault();
+          handleWheelMove(e);
+        }
+      });
 
-    cwContainer.addEventListener('pointerup', handlePointerEnd);
-    cwContainer.addEventListener('pointercancel', handlePointerEnd);
-
-    // Fallback touch events for older WebKit / browsers
-    cwContainer.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      isDraggingWheel = true;
-      pickColorFromWheelEvent(e);
-    }, { passive: false });
-
-    cwContainer.addEventListener('touchmove', (e) => {
-      if (isDraggingWheel) {
+      cwContainer.addEventListener('pointerup', handlePointerEnd);
+      cwContainer.addEventListener('pointercancel', handlePointerEnd);
+    } else {
+      cwContainer.addEventListener('touchstart', (e) => {
         e.preventDefault();
-        pickColorFromWheelEvent(e);
-      }
-    }, { passive: false });
+        isDraggingWheel = true;
+        pickColorFromWheelEvent(e, true);
+      }, { passive: false });
 
-    cwContainer.addEventListener('touchend', () => {
-      if (isDraggingWheel) {
-        isDraggingWheel = false;
-        saveSettings();
-      }
-    });
+      cwContainer.addEventListener('touchmove', (e) => {
+        if (isDraggingWheel) {
+          e.preventDefault();
+          handleWheelMove(e);
+        }
+      }, { passive: false });
+
+      cwContainer.addEventListener('touchend', handlePointerEnd);
+    }
   }
 
   // Lightness Slider Listener
   if (cwLightness) {
     cwLightness.addEventListener('input', () => {
       const hex = hslToHex(currentHue, currentSat, Number(cwLightness.value));
-      setWheelColor(hex, true);
+      setWheelColor(hex, true, true);
     });
     cwLightness.addEventListener('change', () => {
+      const hex = hslToHex(currentHue, currentSat, Number(cwLightness.value));
+      setWheelColor(hex, true, false);
       saveSettings();
     });
   }
@@ -1063,11 +1146,15 @@
     cwHexInput.addEventListener('input', (e) => {
       const hex = e.target.value.trim();
       if (/^#[0-9A-F]{6}$/i.test(hex)) {
-        setWheelColor(hex, true);
+        setWheelColor(hex, true, true);
       }
     });
-    cwHexInput.addEventListener('change', () => {
-      saveSettings();
+    cwHexInput.addEventListener('change', (e) => {
+      const hex = e.target.value.trim();
+      if (/^#[0-9A-F]{6}$/i.test(hex)) {
+        setWheelColor(hex, true, false);
+        saveSettings();
+      }
     });
   }
 
@@ -1075,7 +1162,7 @@
   document.querySelectorAll('.cw-preset-dot').forEach(dot => {
     dot.addEventListener('click', () => {
       const presetHex = dot.dataset.color;
-      setWheelColor(presetHex, true);
+      setWheelColor(presetHex, true, false);
       saveSettings();
     });
   });
@@ -1660,9 +1747,27 @@
       rayCtx.restore();
     }
 
-    function buildStarSprites() {
-      starSpriteCache = {};
+    let lastBuiltStarHex = null;
+    function assignStarSprites() {
+      for (let i = 0; i < stars.length; i++) {
+        const s = stars[i];
+        const cacheEntry = starSpriteCache[s.tempId] || starSpriteCache['diamond'];
+        if (!cacheEntry) continue;
+        if (s.type === 'brilliant') s.sprite = cacheEntry.brilliant;
+        else if (s.type === 'luminous') s.sprite = cacheEntry.luminous;
+        else if (s.type === 'field') s.sprite = cacheEntry.field;
+        s.deepColorStyle = `rgba(${cacheEntry.color.r}, ${cacheEntry.color.g}, ${cacheEntry.color.b}, 0.9)`;
+      }
+    }
+
+    function buildStarSprites(force = false) {
       const userStarHex = S.settings.spaceStarColor || '#ffffff';
+      if (!force && lastBuiltStarHex === userStarHex && Object.keys(starSpriteCache).length > 0) {
+        assignStarSprites();
+        return;
+      }
+      lastBuiltStarHex = userStarHex;
+      starSpriteCache = {};
       const userStarRgb = hexToRgb(userStarHex);
       const isCustomStarColor = userStarHex.toLowerCase() !== '#ffffff';
 
@@ -1756,15 +1861,7 @@
         };
       });
 
-      // Update references in active stars
-      for (let i = 0; i < stars.length; i++) {
-        const s = stars[i];
-        const cacheEntry = starSpriteCache[s.tempId] || starSpriteCache['diamond'];
-        if (s.type === 'brilliant') s.sprite = cacheEntry.brilliant;
-        else if (s.type === 'luminous') s.sprite = cacheEntry.luminous;
-        else if (s.type === 'field') s.sprite = cacheEntry.field;
-        s.deepColorStyle = `rgba(${cacheEntry.color.r}, ${cacheEntry.color.g}, ${cacheEntry.color.b}, 0.9)`;
-      }
+      assignStarSprites();
     }
     window._rebuildStarSprites = buildStarSprites;
 
