@@ -633,6 +633,14 @@
     saveSettingsTimer = setTimeout(saveSettings, 300);
   }
 
+  let writeSettingsTimer = null;
+  function writeSettingsToDisk() {
+    clearTimeout(writeSettingsTimer);
+    writeSettingsTimer = setTimeout(() => {
+      ipcRenderer.invoke('write-settings', S.settings);
+    }, 150);
+  }
+
   function saveSettings() {
     S.settings.accent = document.getElementById('setting-accent').value || '#DC143C';
     S.settings.volume = S.volume;
@@ -653,7 +661,6 @@
     S.settings.spaceCometColor = document.getElementById('setting-space-comet-color').value;
     S.settings.spaceBgColor = document.getElementById('setting-space-bg-color').value;
     applyCustomizationSettings();
-    applySpaceBg(S.settings.spaceBg);
     S.settings.confirmDelete = document.getElementById('setting-confirm-delete').checked;
     S.settings.compactMode = document.getElementById('setting-compact-mode').checked;
     
@@ -670,7 +677,7 @@
     S.settings.lyricFont = document.getElementById('setting-lyric-font').value;
     S.settings.lyricStyle = document.getElementById('setting-lyric-style').value;
     S.settings.lyricGlow = document.getElementById('setting-lyric-glow').value;
-    ipcRenderer.invoke('write-settings', S.settings);
+    writeSettingsToDisk();
   }
 
   function applyLyricsSettings() {
@@ -948,11 +955,9 @@
 
   function positionWheelCursor(hue, sat) {
     if (!cwCursor) return;
-    const w = (cwCanvas && cwCanvas.offsetWidth > 0) ? cwCanvas.offsetWidth : 160;
-    const h = (cwCanvas && cwCanvas.offsetHeight > 0) ? cwCanvas.offsetHeight : 160;
-    const cx = w / 2;
-    const cy = h / 2;
-    const maxR = cx;
+    const cx = 80;
+    const cy = 80;
+    const maxR = 72; // Keeps 14px cursor dot (radius 7px) fully inside the 80px circle
     const r = maxR * (Math.min(100, Math.max(0, sat)) / 100);
     const rad = (hue || 0) * (Math.PI / 180);
     const px = Math.round(cx + r * Math.cos(rad));
@@ -1662,16 +1667,25 @@
     let height = window.innerHeight;
 
     function resizeCanvas() {
-      dpr = Math.max(1, window.devicePixelRatio || 1);
-      width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth || 360;
-      height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight || 640;
+      const newDpr = Math.max(1, window.devicePixelRatio || 1);
+      const newWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth || 360;
+      const newHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight || 640;
+
+      const dimsChanged = (width !== newWidth || height !== newHeight || dpr !== newDpr);
+      dpr = newDpr;
+      width = newWidth;
+      height = newHeight;
+
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
       canvas.style.width = width + 'px';
       canvas.style.height = height + 'px';
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
-      initStars();
+
+      if (dimsChanged || stars.length === 0) {
+        initStars();
+      }
     }
 
     window.addEventListener('resize', resizeCanvas);
@@ -2263,7 +2277,9 @@
     }
 
     window._startSpaceBg = function() {
-      resizeCanvas();
+      if (stars.length === 0) {
+        resizeCanvas();
+      }
       if (!spaceAnimRunning) {
         spaceAnimRunning = true;
         lastFrameTime = performance.now();

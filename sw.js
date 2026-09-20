@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mockify-offline-v1.3';
+const CACHE_NAME = 'mockify-offline-v2.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -25,7 +25,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate: Clean up any old caches
+// Activate: Clean up all old caches and claim clients immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -36,7 +36,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch: Cache-first for offline shell, network fallback
+// Fetch: Network-first with offline cache fallback
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
@@ -47,21 +47,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Network-first strategy: Always fetch latest files when connected, fallback to cache when offline
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Fetch in background to update cache for next load
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkResponse);
-            });
-          }
-        }).catch(() => {});
-        return cachedResponse;
-      }
-
-      return fetch(event.request).then((networkResponse) => {
+    fetch(event.request)
+      .then((networkResponse) => {
         if (networkResponse && (networkResponse.status === 200 || networkResponse.type === 'opaque')) {
           const responseClone = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
@@ -69,12 +58,15 @@ self.addEventListener('fetch', (event) => {
           });
         }
         return networkResponse;
-      }).catch(() => {
-        // If offline and request is an HTML navigation, fallback to root
-        if (event.request.headers.get('accept')?.includes('text/html')) {
-          return caches.match('./index.html') || caches.match('./');
-        }
-      });
-    })
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
+          // If offline and request is an HTML navigation, fallback to root
+          if (event.request.headers.get('accept')?.includes('text/html')) {
+            return caches.match('./index.html') || caches.match('./');
+          }
+        });
+      })
   );
 });
