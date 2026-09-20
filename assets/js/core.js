@@ -42,25 +42,10 @@
           LocalStore.set('playlists', args[0]);
           return { success: true };
         case 'read-settings':
-          return LocalStore.get('settings', {
-            accent: '#DC143C',
-            textColor: '#ffffff',
-            textSecColor: '#a7a7a7',
-            volume: 80,
-            muted: false,
-            spaceBg: true,
-            spaceBrightness: 60,
-            spaceSize: 10,
-            spaceDensity: 300,
-            spaceComets: 5,
-            spaceStarColor: '#ffffff',
-            spaceCometColor: '#00f3ff',
-            spaceBgColor: '#0e1830',
-            coverSpin: true,
-            appFont: "'Inter', sans-serif"
-          });
+          return S.settings;
         case 'write-settings':
-          LocalStore.set('settings', args[0]);
+          S.settings = Object.assign({}, S.settings, args[0]);
+          LocalStore.set('settings', S.settings);
           return { success: true };
         case 'read-recent':
           return LocalStore.get('recent', []);
@@ -111,6 +96,40 @@
   };
   window.SVG = SVG;
 
+  const defaultSettings = {
+    accent: '#DC143C',
+    textColor: '#ffffff',
+    textSecColor: '#a7a7a7',
+    volume: 80,
+    muted: false,
+    spaceBg: true,
+    spaceBrightness: 60,
+    spaceSize: 10,
+    spaceDensity: 300,
+    spaceComets: 5,
+    spaceStarColor: '#ffffff',
+    spaceCometColor: '#00f3ff',
+    spaceBgColor: '#0e1830',
+    coverSpin: true,
+    confirmDelete: true,
+    compactMode: false,
+    appFont: "'Inter', sans-serif"
+  };
+
+  // Synchronously restore saved settings so all modules have user customizations immediately
+  const savedSettings = LocalStore.get('settings', {});
+  const initialSettings = Object.assign({}, defaultSettings, savedSettings);
+
+  // Apply base CSS custom properties right away
+  try {
+    const root = document.documentElement;
+    root.style.setProperty('--accent', initialSettings.accent);
+    root.style.setProperty('--accent-hover', initialSettings.accent);
+    root.style.setProperty('--text-primary', initialSettings.textColor);
+    root.style.setProperty('--text-secondary', initialSettings.textSecColor);
+    root.style.setProperty('--app-font', initialSettings.appFont);
+  } catch (_) {}
+
   /* ── Global State ── */
   const S = {
     view: 'home',
@@ -120,31 +139,15 @@
     isLoading: false,
     shuffle: false,
     repeat: 'none',
-    volume: 80,
-    muted: false,
+    volume: initialSettings.volume !== undefined ? initialSettings.volume : 80,
+    muted: initialSettings.muted !== undefined ? initialSettings.muted : false,
     currentTrack: null,
     searchResults: [],
     playlists: [],
     viewingPlaylist: null,
     recent: [],
     showToasts: false,
-    settings: {
-      accent: '#DC143C',
-      textColor: '#ffffff',
-      textSecColor: '#a7a7a7',
-      volume: 80,
-      muted: false,
-      spaceBg: true,
-      spaceBrightness: 60,
-      spaceSize: 10,
-      spaceDensity: 300,
-      spaceComets: 5,
-      spaceStarColor: '#ffffff',
-      spaceCometColor: '#00f3ff',
-      spaceBgColor: '#0e1830',
-      coverSpin: true,
-      appFont: "'Inter', sans-serif"
-    },
+    settings: initialSettings,
   };
   window.S = S;
 

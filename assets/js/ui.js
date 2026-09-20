@@ -522,8 +522,10 @@
     }
   }
 
+  let isSettingsLoaded = false;
+
   async function loadSettings() {
-    S.settings = (await ipcRenderer.invoke('read-settings')) || {};
+    S.settings = (await ipcRenderer.invoke('read-settings')) || S.settings || {};
     const savedAccent = S.settings.accent || '#DC143C';
     const accentEl = document.getElementById('setting-accent');
     if (accentEl) accentEl.value = savedAccent;
@@ -567,21 +569,23 @@
     if (S.settings.spaceCometColor && document.getElementById('setting-space-comet-color')) document.getElementById('setting-space-comet-color').value = S.settings.spaceCometColor;
     if (S.settings.spaceBgColor && document.getElementById('setting-space-bg-color')) document.getElementById('setting-space-bg-color').value = S.settings.spaceBgColor;
 
-    applyCustomizationSettings();
-    applySpaceOptions();
+    applyCustomizationSettings(true);
+    applySpaceOptions(false);
     applySpaceBg(S.settings.spaceBg);
 
     S.settings.confirmDelete = S.settings.confirmDelete !== undefined ? S.settings.confirmDelete : true;
-    document.getElementById('setting-confirm-delete').checked = S.settings.confirmDelete;
+    const confirmDelEl = document.getElementById('setting-confirm-delete');
+    if (confirmDelEl) confirmDelEl.checked = S.settings.confirmDelete;
 
     S.settings.compactMode = S.settings.compactMode !== undefined ? S.settings.compactMode : false;
-    document.getElementById('setting-compact-mode').checked = S.settings.compactMode;
+    const compactModeEl = document.getElementById('setting-compact-mode');
+    if (compactModeEl) compactModeEl.checked = S.settings.compactMode;
     if (S.settings.compactMode) document.body.classList.add('compact-mode');
     updatePlayBtn();
 
     if (S.settings.volume !== undefined) {
       S.volume = S.settings.volume;
-      volSlider.value = S.volume;
+      if (volSlider) volSlider.value = S.volume;
     }
     if (S.settings.muted !== undefined) {
       S.muted = S.settings.muted;
@@ -591,6 +595,8 @@
     // Populate Backend API Server Settings
     const backendUrlInput = document.getElementById('setting-backend-url');
     const passcodeEl = document.getElementById('setting-passcode');
+
+    isSettingsLoaded = true;
   }
 
   // ── Playback Error Diagnostics Banner ──
@@ -633,36 +639,55 @@
     saveSettingsTimer = setTimeout(saveSettings, 300);
   }
 
-  let writeSettingsTimer = null;
   function writeSettingsToDisk() {
-    clearTimeout(writeSettingsTimer);
-    writeSettingsTimer = setTimeout(() => {
-      ipcRenderer.invoke('write-settings', S.settings);
-    }, 150);
+    if (window.LocalStore) {
+      LocalStore.set('settings', S.settings);
+    }
+    ipcRenderer.invoke('write-settings', S.settings);
   }
 
   function saveSettings() {
-    S.settings.accent = document.getElementById('setting-accent').value || '#DC143C';
+    if (!isSettingsLoaded) return;
+
+    const accentVal = document.getElementById('setting-accent')?.value;
+    if (accentVal) S.settings.accent = accentVal;
     S.settings.volume = S.volume;
     S.settings.muted = S.muted;
     const toastsEl = document.getElementById('setting-toasts');
     if (toastsEl) S.settings.showToasts = toastsEl.checked;
     
-    S.settings.coverSpin = document.getElementById('setting-cover-spin').checked;
-    S.settings.spaceBg = document.getElementById('setting-space-bg').checked;
-    S.settings.spaceBrightness = Number(document.getElementById('setting-space-brightness').value);
-    S.settings.spaceSize = Number(document.getElementById('setting-space-size').value);
-    S.settings.spaceDensity = Number(document.getElementById('setting-space-density').value);
-    S.settings.spaceComets = Number(document.getElementById('setting-space-comets').value);
-    S.settings.textColor = document.getElementById('setting-text-color').value;
-    S.settings.textSecColor = document.getElementById('setting-text-sec-color').value;
-    S.settings.appFont = document.getElementById('setting-app-font').value;
-    S.settings.spaceStarColor = document.getElementById('setting-space-star-color').value;
-    S.settings.spaceCometColor = document.getElementById('setting-space-comet-color').value;
-    S.settings.spaceBgColor = document.getElementById('setting-space-bg-color').value;
+    const coverSpinEl = document.getElementById('setting-cover-spin');
+    if (coverSpinEl) S.settings.coverSpin = coverSpinEl.checked;
+    const spaceBgEl = document.getElementById('setting-space-bg');
+    if (spaceBgEl) S.settings.spaceBg = spaceBgEl.checked;
+    
+    const brightEl = document.getElementById('setting-space-brightness');
+    if (brightEl) S.settings.spaceBrightness = Number(brightEl.value);
+    const sizeEl = document.getElementById('setting-space-size');
+    if (sizeEl) S.settings.spaceSize = Number(sizeEl.value);
+    const densEl = document.getElementById('setting-space-density');
+    if (densEl) S.settings.spaceDensity = Number(densEl.value);
+    const comEl = document.getElementById('setting-space-comets');
+    if (comEl) S.settings.spaceComets = Number(comEl.value);
+    
+    const txtEl = document.getElementById('setting-text-color');
+    if (txtEl) S.settings.textColor = txtEl.value;
+    const txtSecEl = document.getElementById('setting-text-sec-color');
+    if (txtSecEl) S.settings.textSecColor = txtSecEl.value;
+    const fontEl = document.getElementById('setting-app-font');
+    if (fontEl) S.settings.appFont = fontEl.value;
+    const starColorEl = document.getElementById('setting-space-star-color');
+    if (starColorEl) S.settings.spaceStarColor = starColorEl.value;
+    const cometColorEl = document.getElementById('setting-space-comet-color');
+    if (cometColorEl) S.settings.spaceCometColor = cometColorEl.value;
+    const bgColorEl = document.getElementById('setting-space-bg-color');
+    if (bgColorEl) S.settings.spaceBgColor = bgColorEl.value;
+
     applyCustomizationSettings();
-    S.settings.confirmDelete = document.getElementById('setting-confirm-delete').checked;
-    S.settings.compactMode = document.getElementById('setting-compact-mode').checked;
+    const confDelEl = document.getElementById('setting-confirm-delete');
+    if (confDelEl) S.settings.confirmDelete = confDelEl.checked;
+    const compactEl = document.getElementById('setting-compact-mode');
+    if (compactEl) S.settings.compactMode = compactEl.checked;
     
     if (S.settings.compactMode) {
       document.body.classList.add('compact-mode');
@@ -671,12 +696,20 @@
     }
     updatePlayBtn();
     localStorage.setItem('mockify-toasts', S.showToasts);
-    S.settings.lyricSize = document.getElementById('setting-lyric-size').value;
-    S.settings.lyricOpacity = document.getElementById('setting-lyric-opacity').value;
-    S.settings.lyricAlign = document.getElementById('setting-lyric-align').value;
-    S.settings.lyricFont = document.getElementById('setting-lyric-font').value;
-    S.settings.lyricStyle = document.getElementById('setting-lyric-style').value;
-    S.settings.lyricGlow = document.getElementById('setting-lyric-glow').value;
+
+    const lSize = document.getElementById('setting-lyric-size');
+    if (lSize) S.settings.lyricSize = lSize.value;
+    const lOpac = document.getElementById('setting-lyric-opacity');
+    if (lOpac) S.settings.lyricOpacity = lOpac.value;
+    const lAlign = document.getElementById('setting-lyric-align');
+    if (lAlign) S.settings.lyricAlign = lAlign.value;
+    const lFont = document.getElementById('setting-lyric-font');
+    if (lFont) S.settings.lyricFont = lFont.value;
+    const lStyle = document.getElementById('setting-lyric-style');
+    if (lStyle) S.settings.lyricStyle = lStyle.value;
+    const lGlow = document.getElementById('setting-lyric-glow');
+    if (lGlow) S.settings.lyricGlow = lGlow.value;
+
     writeSettingsToDisk();
   }
 
