@@ -604,39 +604,10 @@
     isSettingsLoaded = true;
   }
 
-  // ── Playback Error Diagnostics Banner ──
+  // ── Diagnostics Logger (Banner removed) ──
   window.showPlaybackErrorBanner = function(msg) {
-    const banner = document.getElementById('playback-error-banner');
-    const msgEl = document.getElementById('peb-msg');
-    if (!banner || !msgEl) return;
-    msgEl.textContent = msg;
-    banner.style.display = 'flex';
-    clearTimeout(window._pebTimeout);
-    window._pebTimeout = setTimeout(() => {
-      banner.style.display = 'none';
-    }, 12000);
+    console.warn('[Diagnostics]', msg);
   };
-
-  const pebClose = document.getElementById('peb-close-btn');
-  if (pebClose && !pebClose._bound) {
-    pebClose._bound = true;
-    pebClose.addEventListener('click', () => {
-      const banner = document.getElementById('playback-error-banner');
-      if (banner) banner.style.display = 'none';
-    });
-  }
-
-  const pebSettings = document.getElementById('peb-settings-btn');
-  if (pebSettings && !pebSettings._bound) {
-    pebSettings._bound = true;
-    pebSettings.addEventListener('click', () => {
-      const banner = document.getElementById('playback-error-banner');
-      if (banner) banner.style.display = 'none';
-      if (typeof showView === 'function') showView('settings');
-      const input = document.getElementById('setting-backend-url');
-      if (input) input.focus();
-    });
-  }
 
   let saveSettingsTimer = null;
   function debounceSaveSettings() {
@@ -1659,15 +1630,30 @@
     try {
       const state = await ipcRenderer.invoke('read-last-state');
       if (state && state.track) {
+        // Discard legacy mock hardcoded tracks from storage
+        if (String(state.track.id).startsWith('catalog-song-') || state.track.isHardcoded) {
+          S.currentTrack = null;
+          S.queueIndex = -1;
+          try {
+            localStorage.removeItem('mockify-last-state');
+            localStorage.removeItem('mockify_last-state');
+          } catch (_) {}
+          updatePlayerBar();
+          return;
+        }
+
         S.currentTrack = state.track;
         if (typeof state.queueIndex === 'number' && state.queueIndex >= 0) {
           S.queueIndex = state.queueIndex;
         }
         updatePlayerBar();
-        fetchAndRenderLyrics(state.track);
+        if (typeof fetchAndRenderLyrics === 'function') {
+          fetchAndRenderLyrics(state.track);
+        }
 
         const audioSrc = state.track.audioUrl || state.track.src || state.track.url;
-        if (audioSrc) {
+        // Only set audio.src for persistent URLs. Blob URLs expire across reloads and cause media errors.
+        if (audioSrc && typeof audioSrc === 'string' && !audioSrc.startsWith('blob:') && audioSrc.trim() !== '') {
           S.currentTrack.audioUrl = audioSrc;
           
           const onMeta = () => {

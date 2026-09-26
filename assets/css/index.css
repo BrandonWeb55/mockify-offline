@@ -1164,11 +1164,7 @@
 
     /* ── Home View ── */
     .home-gradient {
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 550px;
-      background: linear-gradient(180deg, var(--accent-glow) 0%, var(--accent-dim) 45%, rgba(18, 18, 18, 0.3) 75%, transparent 100%);
-      pointer-events: none;
+      display: none !important;
     }
     .home-header {
       margin-bottom: 24px;
@@ -1556,7 +1552,7 @@
       top: 0;
       z-index: 10;
       padding: 6px 0 12px;
-      background: linear-gradient(180deg, var(--bg-surface) 60%, transparent);
+      background: none;
     }
     .search-input-wrapper {
       position: relative;
@@ -1578,9 +1574,9 @@
     .search-bar input {
       width: 100%;
       height: 48px;
-      background: rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      background: #1c1e24;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
       border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: var(--radius-pill);
       padding: 0 42px 0 46px;

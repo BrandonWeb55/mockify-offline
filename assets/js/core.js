@@ -37,8 +37,17 @@
   const ipcRenderer = {
     invoke: async (channel, ...args) => {
       switch (channel) {
-        case 'read-playlists':
-          return LocalStore.get('playlists', []);
+        case 'read-playlists': {
+          const pls = LocalStore.get('playlists', []);
+          if (Array.isArray(pls)) {
+            pls.forEach(p => {
+              if (Array.isArray(p.tracks)) {
+                p.tracks = p.tracks.filter(t => t && !String(t.id).startsWith('catalog-song-') && !t.isHardcoded);
+              }
+            });
+          }
+          return pls;
+        }
         case 'write-playlists':
           LocalStore.set('playlists', args[0]);
           return { success: true };
@@ -48,19 +57,35 @@
           S.settings = Object.assign({}, S.settings, args[0]);
           LocalStore.set('settings', S.settings);
           return { success: true };
-        case 'read-recent':
-          return LocalStore.get('recent', []);
+        case 'read-recent': {
+          const rec = LocalStore.get('recent', []);
+          return Array.isArray(rec) ? rec.filter(t => t && !String(t.id).startsWith('catalog-song-') && !t.isHardcoded) : [];
+        }
         case 'write-recent':
           LocalStore.set('recent', args[0]);
           return { success: true };
-        case 'read-queue':
-          return LocalStore.get('queue', { queue: [], queueIndex: -1 });
+        case 'read-queue': {
+          const qData = LocalStore.get('queue', { queue: [], queueIndex: -1 });
+          if (qData && Array.isArray(qData.queue)) {
+            qData.queue = qData.queue.filter(t => t && !String(t.id).startsWith('catalog-song-') && !t.isHardcoded);
+          }
+          return qData;
+        }
         case 'write-queue':
         case 'save-queue':
           LocalStore.set('queue', args[0]);
           return { success: true };
-        case 'read-last-state':
-          return LocalStore.get('last-state', null);
+        case 'read-last-state': {
+          const ls = LocalStore.get('last-state', null) || (function() {
+            try { return JSON.parse(localStorage.getItem('mockify-last-state')); } catch (_) { return null; }
+          })();
+          if (ls && ls.track && (String(ls.track.id).startsWith('catalog-song-') || ls.track.isHardcoded || (ls.track.audioUrl && ls.track.audioUrl.startsWith('blob:')))) {
+            LocalStore.remove('last-state');
+            try { localStorage.removeItem('mockify-last-state'); } catch (_) {}
+            return null;
+          }
+          return ls;
+        }
         case 'write-last-state':
           LocalStore.set('last-state', args[0]);
           return { success: true };
@@ -164,85 +189,18 @@
   }
   window.createArtSvg = createArtSvg;
 
-  const HARDCODED_SONGS = [
-    {
-      id: 'catalog-song-1',
-      title: 'Midnight Resonance',
-      artist: 'Aetheric Dreams',
-      album: 'Neon Odyssey',
-      duration: 218,
-      genre: 'Synthwave',
-      thumbnail: createArtSvg('#7928CA', '#FF0080', 'RESONANCE', 'Synthwave • 2026'),
-      audioUrl: '',
-      isHardcoded: true
-    },
-    {
-      id: 'catalog-song-2',
-      title: 'Starlight Drift',
-      artist: 'Cosmic Pulse',
-      album: 'Galactic Horizon',
-      duration: 184,
-      genre: 'Lo-Fi Chill',
-      thumbnail: createArtSvg('#0070F3', '#00DFD8', 'STARLIGHT', 'Lo-Fi Chill • 2026'),
-      audioUrl: '',
-      isHardcoded: true
-    },
-    {
-      id: 'catalog-song-3',
-      title: 'Solar Flare',
-      artist: 'Nova Frequency',
-      album: 'Deep Space Soundscapes',
-      duration: 245,
-      genre: 'Electronic',
-      thumbnail: createArtSvg('#F5A623', '#FF4E50', 'SOLAR', 'Electronic • 2026'),
-      audioUrl: '',
-      isHardcoded: true
-    },
-    {
-      id: 'catalog-song-4',
-      title: 'Neon Skyline',
-      artist: 'Vapor Echo',
-      album: 'Cybernetic Heart',
-      duration: 196,
-      genre: 'Retrowave',
-      thumbnail: createArtSvg('#00DFD8', '#7928CA', 'SKYLINE', 'Retrowave • 2026'),
-      audioUrl: '',
-      isHardcoded: true
-    },
-    {
-      id: 'catalog-song-5',
-      title: 'Quiet Reflections',
-      artist: 'Luna Meridian',
-      album: 'Velvet Silence',
-      duration: 162,
-      genre: 'Ambient',
-      thumbnail: createArtSvg('#11998E', '#38EF7D', 'REFLECTIONS', 'Ambient • 2026'),
-      audioUrl: '',
-      isHardcoded: true
-    },
-    {
-      id: 'catalog-song-6',
-      title: 'Urban Twilight',
-      artist: 'Downtown Beats',
-      album: 'City Nights Vol. 1',
-      duration: 205,
-      genre: 'Lo-Fi Chill',
-      thumbnail: createArtSvg('#ED213A', '#93291E', 'TWILIGHT', 'Beats • 2026'),
-      audioUrl: '',
-      isHardcoded: true
-    }
-  ];
+  const HARDCODED_SONGS = [];
   window.HARDCODED_SONGS = HARDCODED_SONGS;
 
   /* ── Catalog Loader ── */
   function loadCatalog() {
     const saved = LocalStore.get('catalog', []);
-    const combined = [...HARDCODED_SONGS];
-    saved.forEach(localTrack => {
-      if (!combined.some(t => String(t.id) === String(localTrack.id))) {
-        combined.push(localTrack);
-      }
-    });
+    // Prune out any legacy mock hardcoded song IDs from local storage
+    const cleaned = saved.filter(t => !String(t.id).startsWith('catalog-song-'));
+    if (cleaned.length !== saved.length) {
+      LocalStore.set('catalog', cleaned);
+    }
+    const combined = [...HARDCODED_SONGS, ...cleaned];
     if (typeof S !== 'undefined' && S) {
       S.catalog = combined;
     }

@@ -706,8 +706,8 @@ body.web-mode:not(.theme-space-active) .home-gradient {
     height: 46px !important;
     border-radius: 12px !important;
     background: rgba(255, 255, 255, 0.08) !important;
-    backdrop-filter: blur(16px) !important;
-    -webkit-backdrop-filter: blur(16px) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
     border: 1px solid rgba(255, 255, 255, 0.12) !important;
     padding: 0 40px 0 42px !important;
     font-size: 16px !important;

@@ -130,12 +130,10 @@
       message: err?.message,
       currentSrc: audio.currentSrc || audio.src
     });
+    const wasActive = S.isPlaying || S.isLoading;
     S.isLoading = false;
     S.isPlaying = false;
     updatePlayerBar();
-    if (typeof window.showPlaybackErrorBanner === 'function') {
-      window.showPlaybackErrorBanner(`Audio error: ${codeMap[err?.code] || 'Failed to play audio file'}.`);
-    }
   });
 
   function formatSubs(num, text) {

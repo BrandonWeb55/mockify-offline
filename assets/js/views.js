@@ -439,11 +439,6 @@
       S.isLoading = false;
       S.isPlaying = false;
       updatePlayerBar();
-      if (err.name === 'NotAllowedError') {
-        if (typeof window.showPlaybackErrorBanner === 'function') {
-          window.showPlaybackErrorBanner('Tap play to start audio playback.');
-        }
-      }
     }
   }
 
@@ -605,11 +600,12 @@
             }
           });
         } else {
+          const isAllFilter = activeFilter === 'all';
           container.innerHTML = `
             <div class="empty-state" style="padding: 48px 20px;">
               <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
-              <h3>No songs in this filter</h3>
-              <p style="margin-bottom: 16px;">Import your downloaded audio files, or switch back to "All Songs".</p>
+              <h3>${isAllFilter ? 'Your music catalog is empty' : 'No songs in this filter'}</h3>
+              <p style="margin-bottom: 16px;">${isAllFilter ? 'Import your downloaded MP3 or audio files to start playing offline music.' : 'No songs match the current filter. Switch back to "All Songs" or import new files.'}</p>
               <label for="catalog-file-input" class="catalog-import-btn" style="display: inline-flex;">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
                 <span>Import Music Files</span>
