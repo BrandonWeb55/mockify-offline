@@ -2212,20 +2212,33 @@ body.web-mode:not(.theme-space-active) .home-gradient {
     flex-shrink: 0;
   }
 
-  button svg,
   .nav-item svg,
   .mobile-nav-item svg,
   .mobile-tb-btn svg,
   .pb-ctrl-btn svg,
   .pb-play-btn svg,
-  .mobile-pl-icon svg,
-  .action-btn svg {
+  .mobile-pl-icon svg {
     width: 22px !important;
     height: 22px !important;
     min-width: 22px !important;
     min-height: 22px !important;
     max-width: 22px !important;
     max-height: 22px !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Correctly proportion track action buttons, plus buttons, and card buttons to match import music button (16px) */
+  .action-btn svg,
+  .act-playlist svg,
+  .card-act-btn svg,
+  .lib-add-btn svg,
+  #create-playlist-btn svg {
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    min-height: 16px !important;
+    max-width: 16px !important;
+    max-height: 16px !important;
     flex-shrink: 0 !important;
   }
 

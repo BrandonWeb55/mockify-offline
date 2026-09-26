@@ -38,7 +38,11 @@
           <div class="empty-state" id="recent-empty" style="padding: 48px 20px; text-align: center; color: var(--text-secondary); width: 100%;">
             <div style="font-size: 36px; margin-bottom: 12px; opacity: 0.7;">🎵</div>
             <p style="font-size: 16px; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">No offline music played yet</p>
-            <p style="font-size: 13px; opacity: 0.75; max-width: 340px; margin: 0 auto; line-height: 1.5;">Your offline songs, albums, and playlists will appear here.</p>
+            <p style="font-size: 13px; opacity: 0.75; max-width: 340px; margin: 0 auto 16px; line-height: 1.5;">Your offline songs, albums, and playlists will appear here.</p>
+            <label for="catalog-file-input" class="catalog-import-btn" style="display: inline-flex; cursor: pointer;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              <span>Import Music Files</span>
+            </label>
           </div>
         `;
       } else {
@@ -146,7 +150,6 @@
       <span class="row-duration">${fmt(t.duration)}</span>
       <div class="row-actions">
         ${deleteBtn}
-        <button class="action-btn act-queue" title="Add to queue" data-id="${t.id}">${SVG.queue}</button>
         <button class="action-btn act-playlist" title="Add to playlist" data-id="${t.id}">${SVG.plus}</button>
       </div>
     </div>`;
@@ -205,14 +208,6 @@
       });
     });
 
-    container.querySelectorAll('.act-queue').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        const track = sourceArray.find(t => String(t.id) === String(btn.dataset.id));
-        if (track) addToQueue({ ...track });
-      });
-    });
-
     container.querySelectorAll('.act-playlist').forEach(btn => {
       btn.addEventListener('click', e => {
         e.stopPropagation();
@@ -222,48 +217,9 @@
     });
   }
 
-  /* ═══════════════════════════════════════
-     QUEUE
-     ═══════════════════════════════════════ */
-  function addToQueue(track) {
-    S.queue.push(track);
-    saveQueue();
-    showToast('Added to queue');
-    if (S.view === 'queue') renderQueue();
-  }
-
-  function renderQueue() {
-    const container = document.getElementById('queue-content');
-    if (!container) return;
-
-    if (S.queue.length === 0) {
-      container.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h12v2H3v-2z"/></svg><h3>Queue is empty</h3><p>Add songs to your queue to play them next</p></div>';
-      return;
-    }
-
-    let html = '';
-    if (S.currentTrack && S.queueIndex >= 0) {
-      html += '<div class="queue-section-label">Now Playing</div><div class="track-list">';
-      html += trackRow(S.queue[S.queueIndex], '♪', 'queue');
-      html += '</div>';
-    }
-
-    const upcoming = S.queue.slice(S.queueIndex + 1);
-    if (upcoming.length > 0) {
-      html += '<div class="queue-section-label">Next Up</div><div class="track-list">';
-      upcoming.forEach((t, i) => { html += trackRow(t, S.queueIndex + 2 + i, 'queue'); });
-      html += '</div>';
-    }
-    container.innerHTML = html;
-
-    container.querySelectorAll('.track-row').forEach(row => {
-      row.addEventListener('click', (e) => {
-        if (e.target.closest('.action-btn')) return;
-        const idx = S.queue.findIndex(t => String(t.id) === String(row.dataset.id));
-        if (idx >= 0) { S.queueIndex = idx; playTrack(S.queue[idx], false); }
-      });
-    });
-  }
+  /* Safe no-op stubs */
+  function addToQueue(track) {}
+  function renderQueue() {}
 
   function confirmAction({ title = 'Are you sure?', message = 'Are you sure you want to proceed?', actionText = 'Delete', onConfirm }) {
     if (S.settings.confirmDelete === false) {
@@ -282,24 +238,6 @@
     document.getElementById('modal-confirm-btn')?.addEventListener('click', () => {
       hideModal();
       onConfirm();
-    });
-  }
-
-  const clearQueueBtn = document.getElementById('clear-queue-btn');
-  if (clearQueueBtn) {
-    clearQueueBtn.addEventListener('click', () => {
-      confirmAction({
-        title: 'Clear Queue',
-        message: 'Are you sure you want to clear your current queue?',
-        actionText: 'Clear Queue',
-        onConfirm: () => {
-          S.queue = [];
-          S.queueIndex = -1;
-          saveQueue();
-          renderQueue();
-          showToast('Queue cleared');
-        }
-      });
     });
   }
 
@@ -505,7 +443,6 @@
 
     const input = document.getElementById('catalog-search-input');
     const clearBtn = document.getElementById('catalog-search-clear');
-    const chipsContainer = document.getElementById('catalog-filter-chips');
     const countBadge = document.getElementById('catalog-count-badge');
     const sortSelect = document.getElementById('catalog-sort-select');
     const layoutToggle = document.getElementById('catalog-layout-toggle');
@@ -536,17 +473,8 @@
       const query = String(input && input.value || '').trim().toLowerCase();
       if (clearBtn) clearBtn.style.display = query ? 'flex' : 'none';
 
-      const activeFilter = S.catalogFilter || 'all';
-
-      // 1. Filter by category chip
-      let filtered = allSongs.filter(t => {
-        if (activeFilter === 'recent') return recentTrackIds.has(String(t.id));
-        if (activeFilter === 'liked') return likedTrackIds.has(String(t.id));
-        if (activeFilter === 'local') return !!t.isLocal;
-        return true;
-      });
-
-      // 2. Filter by search query (title, artist, album, genre)
+      // Filter by search query (title, artist, album, genre) narrows the song list down
+      let filtered = allSongs;
       if (query) {
         filtered = filtered.filter(t => {
           const title = (t.title || '').toLowerCase();
@@ -600,12 +528,11 @@
             }
           });
         } else {
-          const isAllFilter = activeFilter === 'all';
           container.innerHTML = `
             <div class="empty-state" style="padding: 48px 20px;">
               <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
-              <h3>${isAllFilter ? 'Your music catalog is empty' : 'No songs in this filter'}</h3>
-              <p style="margin-bottom: 16px;">${isAllFilter ? 'Import your downloaded MP3 or audio files to start playing offline music.' : 'No songs match the current filter. Switch back to "All Songs" or import new files.'}</p>
+              <h3>Your music catalog is empty</h3>
+              <p style="margin-bottom: 16px;">Import your downloaded MP3 or audio files to start playing offline music.</p>
               <label for="catalog-file-input" class="catalog-import-btn" style="display: inline-flex;">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
                 <span>Import Music Files</span>
@@ -625,7 +552,6 @@
                   <img src="${t.thumbnail || ''}" alt="" onerror="this.style.display='none'" />
                   <button class="card-play-btn" data-id="${t.id}">${SVG.play}</button>
                   <div class="card-hover-actions">
-                    <button class="card-act-btn card-queue-btn" data-id="${t.id}" title="Add to Queue">${SVG.queue}</button>
                     <button class="card-act-btn card-playlist-btn" data-id="${t.id}" title="Add to Playlist">${SVG.plus}</button>
                     ${t.isLocal ? `<button class="card-act-btn card-delete-local" data-id="${t.id}" title="Remove">${SVG.trash}</button>` : ''}
                   </div>
@@ -642,14 +568,6 @@
             e.stopPropagation();
             const track = filtered.find(t => String(t.id) === String(btn.dataset.id));
             if (track) playTrack({ ...track });
-          });
-        });
-
-        container.querySelectorAll('.card-queue-btn').forEach(btn => {
-          btn.addEventListener('click', e => {
-            e.stopPropagation();
-            const track = filtered.find(t => String(t.id) === String(btn.dataset.id));
-            if (track) addToQueue({ ...track });
           });
         });
 
@@ -712,17 +630,7 @@
       });
     }
 
-    if (chipsContainer && !chipsContainer._bound) {
-      chipsContainer._bound = true;
-      chipsContainer.querySelectorAll('.mood-chip').forEach(chip => {
-        chip.addEventListener('click', () => {
-          chipsContainer.querySelectorAll('.mood-chip').forEach(c => c.classList.remove('active'));
-          chip.classList.add('active');
-          S.catalogFilter = chip.dataset.filter || 'all';
-          renderCatalogTracks();
-        });
-      });
-    }
+
 
     if (sortSelect && !sortSelect._bound) {
       sortSelect._bound = true;
@@ -739,6 +647,112 @@
         LocalStore.set('catalog-grid-mode', S.catalogGridMode);
         renderCatalogTracks();
       });
+    }
+
+    /* ── Native ID3 Metadata & Embedded Cover Art Extractor ── */
+    function decodeID3Text(bytes, encoding) {
+      try {
+        if (encoding === 0 || encoding === 3) {
+          return new TextDecoder(encoding === 3 ? 'utf-8' : 'iso-8859-1').decode(bytes).replace(/\0+$/, '').trim();
+        } else if (encoding === 1 || encoding === 2) {
+          return new TextDecoder(encoding === 2 ? 'utf-16be' : 'utf-16').decode(bytes).replace(/\0+$/, '').trim();
+        }
+      } catch (_) {}
+      return '';
+    }
+
+    function uint8ArrayToDataUrl(bytes, mimeType = 'image/jpeg') {
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, chunk);
+      }
+      return `data:${mimeType};base64,${btoa(binary)}`;
+    }
+
+    async function readAudioID3Tags(file) {
+      if (!file || !file.slice) return null;
+      try {
+        const headerSlice = await file.slice(0, 524288).arrayBuffer();
+        const bytes = new Uint8Array(headerSlice);
+        const meta = {};
+
+        if (bytes.length >= 10 && bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) {
+          const version = bytes[3];
+          const tagSize = ((bytes[6] & 0x7f) << 21) | ((bytes[7] & 0x7f) << 14) | ((bytes[8] & 0x7f) << 7) | (bytes[9] & 0x7f);
+          let offset = 10;
+          const end = Math.min(bytes.length, 10 + tagSize);
+
+          while (offset + 10 < end) {
+            let frameId = '';
+            for (let j = 0; j < 4; j++) frameId += String.fromCharCode(bytes[offset + j]);
+            if (!/^[A-Z0-9]{4}$/.test(frameId)) break;
+
+            let frameSize = 0;
+            if (version === 4) {
+              frameSize = ((bytes[offset + 4] & 0x7f) << 21) | ((bytes[offset + 5] & 0x7f) << 14) | ((bytes[offset + 6] & 0x7f) << 7) | (bytes[offset + 7] & 0x7f);
+            } else {
+              frameSize = (bytes[offset + 4] << 24) | (bytes[offset + 5] << 16) | (bytes[offset + 6] << 8) | bytes[offset + 7];
+            }
+            offset += 10;
+            if (frameSize <= 0 || offset + frameSize > bytes.length) break;
+
+            const frameBytes = bytes.subarray(offset, offset + frameSize);
+            offset += frameSize;
+
+            if (frameId === 'TIT2' && !meta.title) {
+              meta.title = decodeID3Text(frameBytes.subarray(1), frameBytes[0]);
+            } else if (frameId === 'TPE1' && !meta.artist) {
+              meta.artist = decodeID3Text(frameBytes.subarray(1), frameBytes[0]);
+            } else if (frameId === 'TALB' && !meta.album) {
+              meta.album = decodeID3Text(frameBytes.subarray(1), frameBytes[0]);
+            } else if (frameId === 'TCON' && !meta.genre) {
+              meta.genre = decodeID3Text(frameBytes.subarray(1), frameBytes[0]);
+            } else if (frameId === 'APIC' && !meta.coverArt) {
+              const enc = frameBytes[0];
+              let mimeEnd = 1;
+              while (mimeEnd < frameBytes.length && frameBytes[mimeEnd] !== 0) mimeEnd++;
+              let mimeType = new TextDecoder('iso-8859-1').decode(frameBytes.subarray(1, mimeEnd)).toLowerCase();
+              if (!mimeType || mimeType === 'image/') mimeType = 'image/jpeg';
+              let picOffset = mimeEnd + 1;
+              picOffset++; // Skip picture type
+
+              // Description (null-terminated)
+              if (enc === 1 || enc === 2) {
+                while (picOffset + 1 < frameBytes.length && !(frameBytes[picOffset] === 0 && frameBytes[picOffset + 1] === 0)) picOffset += 2;
+                picOffset += 2;
+              } else {
+                while (picOffset < frameBytes.length && frameBytes[picOffset] !== 0) picOffset++;
+                picOffset++;
+              }
+
+              if (picOffset < frameBytes.length) {
+                const imgBytes = frameBytes.subarray(picOffset);
+                if (imgBytes.length > 32) {
+                  meta.coverArt = uint8ArrayToDataUrl(imgBytes, mimeType);
+                }
+              }
+            }
+          }
+        }
+
+        // Fallback to ID3v1 at the end of the file if needed
+        if ((!meta.title || !meta.artist) && file.size > 128) {
+          const v1Slice = await file.slice(-128).arrayBuffer();
+          const v1Bytes = new Uint8Array(v1Slice);
+          if (v1Bytes.length === 128 && v1Bytes[0] === 0x54 && v1Bytes[1] === 0x41 && v1Bytes[2] === 0x47) {
+            const dec = (sub) => new TextDecoder('iso-8859-1').decode(sub).replace(/\0+$/, '').trim();
+            if (!meta.title) meta.title = dec(v1Bytes.subarray(3, 33));
+            if (!meta.artist) meta.artist = dec(v1Bytes.subarray(33, 63));
+            if (!meta.album) meta.album = dec(v1Bytes.subarray(63, 93));
+          }
+        }
+
+        return meta;
+      } catch (_) {
+        return null;
+      }
     }
 
     // File Importer
@@ -772,6 +786,21 @@
             title = parts.slice(1).join(' - ').trim();
           }
 
+          let coverArt = '';
+          let album = 'Imported Music';
+          let genre = 'Downloaded';
+
+          try {
+            const id3 = await readAudioID3Tags(file);
+            if (id3) {
+              if (id3.title) title = id3.title;
+              if (id3.artist) artist = id3.artist;
+              if (id3.album) album = id3.album;
+              if (id3.genre) genre = id3.genre;
+              if (id3.coverArt) coverArt = id3.coverArt;
+            }
+          } catch (_) {}
+
           const grad = gradients[Math.floor(Math.random() * gradients.length)];
           const trackId = 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
           const audioUrl = URL.createObjectURL(file);
@@ -793,12 +822,12 @@
             id: trackId,
             title,
             artist,
-            album: 'Imported Music',
+            album,
             duration: duration || 180,
-            genre: 'Downloaded',
-            thumbnail: (typeof createArtSvg === 'function')
+            genre,
+            thumbnail: coverArt || ((typeof createArtSvg === 'function')
               ? createArtSvg(grad[0], grad[1], title.slice(0, 8).toUpperCase(), artist)
-              : '',
+              : ''),
             audioUrl,
             isLocal: true,
             fileName: file.name

@@ -950,130 +950,13 @@
       });
     }
 
-    /* ── Now Playing Queue Drawer Controller ── */
-    function openMnpQueue() {
-      const drawer = document.getElementById('mnp-queue-drawer');
-      if (!drawer) return;
-      renderMnpQueue();
-      drawer.classList.add('open');
-    }
-
-    function closeMnpQueue() {
-      const drawer = document.getElementById('mnp-queue-drawer');
-      if (drawer) drawer.classList.remove('open');
-    }
-
-    function renderMnpQueue() {
-      const body = document.getElementById('mnp-queue-body');
-      if (!body) return;
-
-      let html = '';
-      const cur = S.currentTrack;
-      if (cur) {
-        html += '<div class="mnp-q-sec-title">Now Playing</div>';
-        html += `
-          <div class="mnp-q-row now-playing">
-            <img class="mnp-q-thumb" src="${cur.thumbnail || ''}" alt="" />
-            <div class="mnp-q-info">
-              <div class="mnp-q-title">${esc(cur.title || 'Unknown Title')}</div>
-              <div class="mnp-q-artist">${esc(cur.artist || 'Unknown Artist')}</div>
-            </div>
-            <div class="mini-eq ${S.isPlaying ? '' : 'paused'}">
-              <span class="eq-bar bar-1"></span>
-              <span class="eq-bar bar-2"></span>
-              <span class="eq-bar bar-3"></span>
-            </div>
-          </div>
-        `;
-      }
-
-      const queueList = (S.queue || []).slice(S.queueIndex + 1);
-      html += '<div class="mnp-q-sec-title">Next In Queue</div>';
-      if (queueList.length === 0) {
-        html += '<div class="mnp-q-empty">No upcoming tracks in queue.<br>Tap "..." in Now Playing to add songs next.</div>';
-      } else {
-        queueList.forEach((t, i) => {
-          const realIdx = S.queueIndex + 1 + i;
-          html += `
-            <div class="mnp-q-row" data-qidx="${realIdx}">
-              <img class="mnp-q-thumb" src="${t.thumbnail || ''}" alt="" />
-              <div class="mnp-q-info">
-                <div class="mnp-q-title">${esc(t.title || 'Unknown Title')}</div>
-                <div class="mnp-q-artist">${esc(t.artist || 'Unknown Artist')}</div>
-              </div>
-              <button class="mnp-q-del-btn" data-delidx="${realIdx}" title="Remove from queue" aria-label="Remove from queue">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-              </button>
-            </div>
-          `;
-        });
-      }
-
-      body.innerHTML = html;
-
-      // Click row to play track from queue
-      body.querySelectorAll('.mnp-q-row[data-qidx]').forEach(row => {
-        row.addEventListener('click', (e) => {
-          if (e.target.closest('.mnp-q-del-btn')) return;
-          const qidx = Number(row.dataset.qidx);
-          if (qidx >= 0 && qidx < S.queue.length) {
-            S.queueIndex = qidx;
-            if (typeof window.playTrack === 'function') {
-              window.playTrack(S.queue[qidx], false);
-            }
-            renderMnpQueue();
-          }
-        });
-      });
-
-      // Remove track from queue
-      body.querySelectorAll('.mnp-q-del-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const delIdx = Number(btn.dataset.delidx);
-          if (delIdx >= 0 && delIdx < S.queue.length) {
-            S.queue.splice(delIdx, 1);
-            if (typeof window.saveQueue === 'function') window.saveQueue();
-            renderMnpQueue();
-            showToast('Removed from queue');
-          }
-        });
-      });
-    }
+    /* Safe no-op stubs */
+    function renderMnpQueue() {}
+    function openMnpQueue() {}
+    function closeMnpQueue() {}
     window.renderMnpQueue = renderMnpQueue;
     window.openMnpQueue = openMnpQueue;
     window.closeMnpQueue = closeMnpQueue;
-
-    const mnpQueueBtn = document.getElementById('mnp-queue-btn');
-    if (mnpQueueBtn) {
-      mnpQueueBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openMnpQueue();
-      });
-    }
-
-    const mnpQueueClose = document.getElementById('mnp-queue-close-btn');
-    if (mnpQueueClose) {
-      mnpQueueClose.addEventListener('click', (e) => {
-        e.stopPropagation();
-        closeMnpQueue();
-      });
-    }
-
-    const mnpQueueClear = document.getElementById('mnp-queue-clear-btn');
-    if (mnpQueueClear) {
-      mnpQueueClear.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (S.queue && S.queue.length > S.queueIndex + 1) {
-          S.queue = S.queue.slice(0, S.queueIndex + 1);
-          if (typeof window.saveQueue === 'function') window.saveQueue();
-          renderMnpQueue();
-          showToast('Queue cleared');
-        } else {
-          showToast('No upcoming tracks to clear');
-        }
-      });
-    }
 
     /* ── Now Playing Options Sheet (3-Dots Menu) ── */
     function openMnpOptions() {
@@ -1114,21 +997,7 @@
       });
     }
 
-    const optAddQ = document.getElementById('mnp-opt-add-queue');
-    if (optAddQ) {
-      optAddQ.addEventListener('click', () => {
-        closeMnpOptions();
-        if (S.currentTrack) {
-          if (typeof window.addToQueue === 'function') {
-            window.addToQueue({ ...S.currentTrack });
-          } else {
-            S.queue.push({ ...S.currentTrack });
-            if (typeof window.saveQueue === 'function') window.saveQueue();
-            showToast('Added to queue');
-          }
-        }
-      });
-    }
+
 
     /* ── Now Playing Lyrics Drawer ── */
     function openMnpLyrics() {

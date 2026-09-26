@@ -17,9 +17,7 @@
     rightPanel.style.display = 'none';
     btnNowPlaying.style.color = 'var(--text-secondary)';
   });
-  document.getElementById('btn-queue')?.addEventListener('click', () => {
-    showView('queue');
-  });
+
   document.getElementById('btn-pb-add-playlist').addEventListener('click', () => {
     if (S.currentTrack) showAddToPlaylistModal(S.currentTrack);
     else showToast('No track playing', 'error');

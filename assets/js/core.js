@@ -293,7 +293,6 @@
 
     if (name === 'home' && typeof window.renderHome === 'function') window.renderHome();
     if (name === 'search' && typeof window.renderCatalogSearch === 'function') window.renderCatalogSearch();
-    if (name === 'queue' && typeof window.renderQueue === 'function') window.renderQueue();
     if (name === 'library' && typeof window.renderPlaylists === 'function') window.renderPlaylists();
     if (name === 'lyrics' && S.currentTrack && typeof window.fetchAndRenderLyrics === 'function') {
       window.fetchAndRenderLyrics(S.currentTrack);
