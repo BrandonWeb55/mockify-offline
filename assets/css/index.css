@@ -1631,6 +1631,61 @@
       margin-bottom: 24px;
     }
 
+    /* ── Catalog & Search UI Styles ── */
+    .search-catalog-header {
+      margin-bottom: 8px;
+    }
+    .catalog-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      width: 100%;
+    }
+    .catalog-import-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      border-radius: var(--radius-pill);
+      background: var(--accent);
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      transition: background 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+      box-shadow: 0 4px 14px var(--accent-dim);
+      user-select: none;
+    }
+    .catalog-import-btn:hover {
+      background: var(--accent-hover);
+      transform: scale(1.04);
+      box-shadow: 0 6px 18px var(--accent-glow);
+    }
+    .catalog-import-btn:active {
+      transform: scale(0.96);
+    }
+    .catalog-import-btn svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+    .catalog-count-badge {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .catalog-filters-bar {
+      margin-top: 4px;
+      margin-bottom: 4px;
+    }
+    #view-search.drag-over {
+      outline: 2px dashed var(--accent);
+      outline-offset: -12px;
+      background: rgba(220, 20, 60, 0.05);
+    }
+
     /* ── Library View (Modern Spotify Layout) ── */
     .library-header-row {
       display: flex;

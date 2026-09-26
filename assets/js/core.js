@@ -130,6 +130,123 @@
     root.style.setProperty('--app-font', initialSettings.appFont);
   } catch (_) {}
 
+  /* ═══════════════════════════════════════════════════════════════════
+     HARDCODED OFFLINE SONG CATALOG
+     Easily add or edit songs you have downloaded or bundled into the app.
+     Add items to this array with your own audio files, titles, and artwork!
+     Format:
+       id: Unique identifier
+       title: Song title
+       artist: Artist name
+       album: Album name
+       duration: Length in seconds
+       genre: Category/genre tag
+       thumbnail: Image path, URL, or data URI
+       audioUrl: Path to audio file (e.g. 'assets/music/song.mp3') or empty for synth
+     ═══════════════════════════════════════════════════════════════════ */
+  function createArtSvg(color1, color2, iconText, subtitle) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300">
+      <defs>
+        <linearGradient id="g_${iconText}" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${color1}" />
+          <stop offset="100%" stop-color="${color2}" />
+        </linearGradient>
+      </defs>
+      <rect width="300" height="300" rx="16" fill="url(#g_${iconText})" />
+      <circle cx="150" cy="150" r="82" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="4" />
+      <circle cx="150" cy="150" r="44" fill="rgba(0,0,0,0.35)" />
+      <circle cx="150" cy="150" r="16" fill="${color1}" />
+      <text x="150" y="240" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="1">${iconText}</text>
+      <text x="150" y="265" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="600" fill="rgba(255,255,255,0.7)" text-anchor="middle">${subtitle}</text>
+    </svg>`;
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+  window.createArtSvg = createArtSvg;
+
+  const HARDCODED_SONGS = [
+    {
+      id: 'catalog-song-1',
+      title: 'Midnight Resonance',
+      artist: 'Aetheric Dreams',
+      album: 'Neon Odyssey',
+      duration: 218,
+      genre: 'Synthwave',
+      thumbnail: createArtSvg('#7928CA', '#FF0080', 'RESONANCE', 'Synthwave • 2026'),
+      audioUrl: '',
+      isHardcoded: true
+    },
+    {
+      id: 'catalog-song-2',
+      title: 'Starlight Drift',
+      artist: 'Cosmic Pulse',
+      album: 'Galactic Horizon',
+      duration: 184,
+      genre: 'Lo-Fi Chill',
+      thumbnail: createArtSvg('#0070F3', '#00DFD8', 'STARLIGHT', 'Lo-Fi Chill • 2026'),
+      audioUrl: '',
+      isHardcoded: true
+    },
+    {
+      id: 'catalog-song-3',
+      title: 'Solar Flare',
+      artist: 'Nova Frequency',
+      album: 'Deep Space Soundscapes',
+      duration: 245,
+      genre: 'Electronic',
+      thumbnail: createArtSvg('#F5A623', '#FF4E50', 'SOLAR', 'Electronic • 2026'),
+      audioUrl: '',
+      isHardcoded: true
+    },
+    {
+      id: 'catalog-song-4',
+      title: 'Neon Skyline',
+      artist: 'Vapor Echo',
+      album: 'Cybernetic Heart',
+      duration: 196,
+      genre: 'Retrowave',
+      thumbnail: createArtSvg('#00DFD8', '#7928CA', 'SKYLINE', 'Retrowave • 2026'),
+      audioUrl: '',
+      isHardcoded: true
+    },
+    {
+      id: 'catalog-song-5',
+      title: 'Quiet Reflections',
+      artist: 'Luna Meridian',
+      album: 'Velvet Silence',
+      duration: 162,
+      genre: 'Ambient',
+      thumbnail: createArtSvg('#11998E', '#38EF7D', 'REFLECTIONS', 'Ambient • 2026'),
+      audioUrl: '',
+      isHardcoded: true
+    },
+    {
+      id: 'catalog-song-6',
+      title: 'Urban Twilight',
+      artist: 'Downtown Beats',
+      album: 'City Nights Vol. 1',
+      duration: 205,
+      genre: 'Lo-Fi Chill',
+      thumbnail: createArtSvg('#ED213A', '#93291E', 'TWILIGHT', 'Beats • 2026'),
+      audioUrl: '',
+      isHardcoded: true
+    }
+  ];
+  window.HARDCODED_SONGS = HARDCODED_SONGS;
+
+  /* ── Catalog Loader ── */
+  function loadCatalog() {
+    const saved = LocalStore.get('catalog', []);
+    const combined = [...HARDCODED_SONGS];
+    saved.forEach(localTrack => {
+      if (!combined.some(t => String(t.id) === String(localTrack.id))) {
+        combined.push(localTrack);
+      }
+    });
+    S.catalog = combined;
+    return S.catalog;
+  }
+  window.loadCatalog = loadCatalog;
+
   /* ── Global State ── */
   const S = {
     view: 'home',
@@ -143,6 +260,10 @@
     muted: initialSettings.muted !== undefined ? initialSettings.muted : false,
     currentTrack: null,
     searchResults: [],
+    catalog: loadCatalog(),
+    catalogFilter: 'all',
+    catalogSort: 'default',
+    catalogGridMode: LocalStore.get('catalog-grid-mode', false),
     playlists: [],
     viewingPlaylist: null,
     recent: [],
@@ -173,9 +294,6 @@
 
   /* ── View Switcher ── */
   function showView(name) {
-    // Redirect removed views
-    if (name === 'search') name = 'home';
-
     S.view = name;
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-' + name)?.classList.add('active');
@@ -199,6 +317,7 @@
     }
 
     if (name === 'home' && typeof renderHome === 'function') renderHome();
+    if (name === 'search' && typeof renderCatalogSearch === 'function') renderCatalogSearch();
     if (name === 'queue' && typeof renderQueue === 'function') renderQueue();
     if (name === 'library' && typeof renderPlaylists === 'function') renderPlaylists();
     if (name === 'lyrics' && S.currentTrack && typeof window.fetchAndRenderLyrics === 'function') {

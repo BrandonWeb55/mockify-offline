@@ -71,7 +71,7 @@ mockify-offline/
 ## 🛠️ Current Project State (What Was Done)
 
 1. **Zero Streaming Dependency**: All YouTube API calls, `yt-dlp` scripts, `search-youtube` IPCs, and remote backend streaming logic have been completely deleted.
-2. **Search View Removed**: Streamlined the layout to Home, Queue, Library, and Settings.
+2. **Offline Song Catalog & Live Search**: Transformed the Search section into a full offline Music Catalog for all downloaded, imported, and hardcoded songs. Includes real-time instant search filtering across titles, artists, and albums, category chips (All, Recently Played, Liked, Downloaded), sorting, grid/list view toggle, and a one-click local audio importer with drag-and-drop support.
 3. **Mobile Star Canvas Fixed**: Resolved density formula issue that previously evaluated to 0 stars on mobile screens; added orientation-change resizing.
 4. **Mobile Typography Refined**: Defaulted to crisp `Inter`, preconnected all font weights, softened heading weights to `700`, and enabled font antialiasing.
 5. **Offline Service Worker (`sw.js`)**: Updated to cache app assets and opaque font binaries for true Airplane Mode functionality.
