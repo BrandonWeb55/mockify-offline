@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mockify-offline-v3.3';
+const CACHE_NAME = 'mockify-offline-v3.5';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -103,4 +103,11 @@ self.addEventListener('fetch', (event) => {
       })
       .catch(() => caches.match(event.request, { ignoreSearch: true }))
   );
+});
+
+// Immediate Activation Message Listener
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });

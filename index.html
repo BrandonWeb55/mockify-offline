@@ -28,8 +28,8 @@
     }
   </style>
 
-  <link rel="stylesheet" href="assets/css/index.css?v=3.3" />
-  <link rel="stylesheet" href="assets/css/mobile.css?v=3.3" />
+  <link rel="stylesheet" href="assets/css/index.css?v=3.5" />
+  <link rel="stylesheet" href="assets/css/mobile.css?v=3.5" />
   <script>
     // Lock orientation to portrait if supported
     try { screen.orientation.lock('portrait').catch(function(){}); } catch(e) {}
@@ -573,24 +573,55 @@
   <!-- ═══════════════════════════════════════════════════
        JAVASCRIPT
        ═══════════════════════════════════════════════════ -->
-  <!-- Service Worker Registration -->
+  <!-- Service Worker Registration & Instant PWA Update Engine -->
   <script>
     if ('serviceWorker' in navigator) {
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
+      });
+
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
           .then(reg => {
-            reg.update();
+            // Check for updates on startup
+            reg.update().catch(() => {});
+
+            // Listen for waiting service workers and activate immediately
+            if (reg.waiting) {
+              reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+            reg.addEventListener('updatefound', () => {
+              const newWorker = reg.installing;
+              if (newWorker) {
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                  }
+                });
+              }
+            });
           })
           .catch(err => console.log('SW registration error:', err));
+      });
+
+      // Also trigger a check whenever the user brings the PWA back to the foreground
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          navigator.serviceWorker.getRegistration().then(reg => reg && reg.update().catch(() => {}));
+        }
       });
     }
   </script>
 
   <!-- Core Logic -->
-  <script src="assets/js/core.js?v=3.3"></script>
-  <script src="assets/js/views.js?v=3.3"></script>
-  <script src="assets/js/audio.js?v=3.3"></script>
-  <script src="assets/js/ui.js?v=3.3"></script>
+  <script src="assets/js/core.js?v=3.5"></script>
+  <script src="assets/js/views.js?v=3.5"></script>
+  <script src="assets/js/audio.js?v=3.5"></script>
+  <script src="assets/js/ui.js?v=3.5"></script>
 
 </body>
 </html>
