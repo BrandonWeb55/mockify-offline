@@ -275,7 +275,7 @@
   window.SVG = SVG;
 
   const defaultSettings = {
-    accent: '#DC143C',
+    accent: '#1DB954',
     textColor: '#ffffff',
     textSecColor: '#a7a7a7',
     volume: 80,

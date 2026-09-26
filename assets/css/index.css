@@ -49,10 +49,10 @@
       --text-primary: #ffffff;
       --text-secondary: #a7a7a7;
       --text-muted: #6a6a6a;
-      --accent: #DC143C;
-      --accent-hover: #E32636;
-      --accent-dim: rgba(220, 20, 60, 0.18);
-      --accent-glow: rgba(220, 20, 60, 0.50);
+      --accent: #1DB954;
+      --accent-hover: #1ed760;
+      --accent-dim: rgba(29, 185, 84, 0.18);
+      --accent-glow: rgba(29, 185, 84, 0.40);
       --error: #f44336;
       --error-dim: rgba(244,67,54,0.15);
       --border: rgba(255,255,255,0.08);
@@ -516,12 +516,12 @@
       left: 0;
       width: 8px;
       height: 8px;
-      background-color: var(--accent, #DC143C);
+      background-color: var(--accent);
       border-radius: 50%;
       pointer-events: none;
       z-index: 999999;
       transform: translate(-50%, -50%);
-      box-shadow: 0 0 10px var(--accent, #DC143C);
+      box-shadow: 0 0 10px var(--accent-glow);
       transition: transform 100ms ease, width 150ms ease, height 150ms ease, background-color 150ms ease;
     }
 
@@ -531,19 +531,19 @@
       left: 0;
       width: 28px;
       height: 28px;
-      border: 2px solid var(--accent, #DC143C);
+      border: 2px solid var(--accent);
       border-radius: 50%;
       pointer-events: none;
       z-index: 999998;
       transform: translate(-50%, -50%);
-      box-shadow: 0 0 12px var(--accent-glow, rgba(220, 20, 60, 0.38));
+      box-shadow: 0 0 12px var(--accent-glow);
       transition: transform 180ms cubic-bezier(0.25, 1, 0.5, 1), border-color 150ms ease, background-color 150ms ease;
     }
 
     body.cursor-hover .custom-cursor-ring {
       transform: translate(-50%, -50%) scale(1.4);
-      background-color: var(--accent-dim, rgba(220, 20, 60, 0.18));
-      border-color: var(--accent, #DC143C);
+      background-color: var(--accent-dim);
+      border-color: var(--accent);
     }
     body.cursor-hover .custom-cursor-dot {
       transform: translate(-50%, -50%) scale(0.6);
@@ -705,14 +705,14 @@
       width: 4px;
       height: 4px;
       border-radius: 50%;
-      background: var(--accent, #DC143C);
+      background: var(--accent);
       display: none;
     }
     .mp-btn.active .mp-active-dot {
       display: block;
     }
     .mp-btn.active {
-      color: var(--accent, #DC143C);
+      color: var(--accent);
     }
 
     .mp-play-circle {
@@ -1697,7 +1697,7 @@
     #view-search.drag-over {
       outline: 2px dashed var(--accent);
       outline-offset: -12px;
-      background: rgba(220, 20, 60, 0.05);
+      background: var(--accent-dim);
     }
 
     /* ── Library View (Modern Spotify Layout) ── */
@@ -1865,7 +1865,7 @@
     }
     .mini-eq .eq-bar {
       width: 3px;
-      background: var(--accent, #DC143C);
+      background: var(--accent);
       border-radius: 1px;
     }
     .mini-eq .bar-1 { height: 12px; animation: eq1 0.6s ease-in-out infinite alternate; }

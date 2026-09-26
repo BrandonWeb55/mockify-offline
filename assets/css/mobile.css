@@ -1356,9 +1356,9 @@ body.web-mode:not(.theme-space-active) .home-gradient {
     min-height: 26px !important;
     max-width: 26px !important;
     max-height: 26px !important;
-    fill: var(--accent, #DC143C) !important;
+    fill: var(--accent) !important;
     flex-shrink: 0 !important;
-    filter: drop-shadow(0 0 6px var(--accent-glow, rgba(220, 20, 60, 0.45)));
+    filter: drop-shadow(0 0 6px var(--accent-glow));
   }
 
   .mobile-nav-item.active .nav-ico-inactive {
@@ -1366,7 +1366,7 @@ body.web-mode:not(.theme-space-active) .home-gradient {
   }
 
   .mobile-nav-item.active .nav-label {
-    color: var(--accent, #DC143C) !important;
+    color: var(--accent) !important;
     font-size: 12px !important;
     font-weight: 700 !important;
   }

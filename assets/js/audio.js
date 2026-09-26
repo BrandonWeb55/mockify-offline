@@ -151,7 +151,7 @@
       muted: S.muted,
       shuffle: S.shuffle,
       repeat: S.repeat,
-      accent: S.settings.accent || '#DC143C',
+      accent: S.settings.accent || '#1DB954',
       textColor: S.settings.textColor || '#ffffff',
       textSecColor: S.settings.textSecColor || '#a7a7a7',
       appFont: S.settings.appFont || "'Outfit', sans-serif"

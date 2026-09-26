@@ -529,7 +529,13 @@
 
   async function loadSettings() {
     S.settings = (await ipcRenderer.invoke('read-settings')) || S.settings || {};
-    const savedAccent = S.settings.accent || '#DC143C';
+    let savedAccent = S.settings.accent || '#1DB954';
+    // Migrate legacy hardcoded crimson red to default Spotify emerald
+    if (!savedAccent || savedAccent.toUpperCase() === '#DC143C') {
+      savedAccent = '#1DB954';
+      S.settings.accent = savedAccent;
+      LocalStore.set('settings', S.settings);
+    }
     const accentEl = document.getElementById('setting-accent');
     if (accentEl) accentEl.value = savedAccent;
     applyAccentColor(savedAccent);
@@ -805,14 +811,14 @@
   const btnResetColors = document.getElementById('btn-reset-colors');
   if (btnResetColors) {
     btnResetColors.addEventListener('click', () => {
-      document.getElementById('setting-accent').value = '#DC143C';
+      document.getElementById('setting-accent').value = '#1DB954';
       document.getElementById('setting-text-color').value = '#ffffff';
       document.getElementById('setting-text-sec-color').value = '#a7a7a7';
       document.getElementById('setting-app-font').value = "'Outfit', sans-serif";
       document.getElementById('setting-space-star-color').value = '#ffffff';
       document.getElementById('setting-space-comet-color').value = '#00f3ff';
       document.getElementById('setting-space-bg-color').value = '#0e1830';
-      applyAccentColor('#DC143C');
+      applyAccentColor('#1DB954');
       applyCustomizationSettings();
       saveSettings();
       showToast('Colors & typography reset to default');
@@ -2001,7 +2007,7 @@
       const height = canvas.height;
       ctx.clearRect(0, 0, width, height);
 
-      const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#DC143C';
+      const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#1DB954';
       const gap = 4;
       const barWidth = (width - (numBars - 1) * gap) / numBars;
 
