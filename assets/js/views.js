@@ -380,9 +380,6 @@
 
       addToRecent(track);
       updatePlayerBar();
-      if (typeof window.fetchAndRenderLyrics === 'function') {
-        window.fetchAndRenderLyrics(track);
-      }
     } catch (err) {
       if (currentReqId !== activePlayRequestId) return;
       console.error('[Offline Audio Playback Error]', err);
@@ -699,6 +696,39 @@
       return `data:${mimeType};base64,${btoa(binary)}`;
     }
 
+    // Downsample cover art to ~240x240 JPEG to keep memory lightweight and prevent storage quota crashes
+    function downsampleImage(dataUrl, maxDim = 240) {
+      return new Promise((resolve) => {
+        if (!dataUrl || !dataUrl.startsWith('data:image/')) return resolve('');
+        const img = new Image();
+        img.onload = () => {
+          try {
+            let w = img.width || maxDim;
+            let h = img.height || maxDim;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) {
+                h = Math.round((h * maxDim) / w);
+                w = maxDim;
+              } else {
+                w = Math.round((w * maxDim) / h);
+                h = maxDim;
+              }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.82));
+          } catch (_) {
+            resolve(dataUrl.length < 120000 ? dataUrl : '');
+          }
+        };
+        img.onerror = () => resolve('');
+        img.src = dataUrl;
+      });
+    }
+
     async function readAudioID3Tags(file) {
       if (!file || !file.slice) return null;
       try {
@@ -758,7 +788,8 @@
               if (picOffset < frameBytes.length) {
                 const imgBytes = frameBytes.subarray(picOffset);
                 if (imgBytes.length > 32) {
-                  meta.coverArt = uint8ArrayToDataUrl(imgBytes, mimeType);
+                  const rawUrl = uint8ArrayToDataUrl(imgBytes, mimeType);
+                  meta.coverArt = await downsampleImage(rawUrl, 240);
                 }
               }
             }
@@ -783,27 +814,69 @@
       }
     }
 
-    // File Importer
-    if (fileInput && !fileInput._bound) {
-      fileInput._bound = true;
-      fileInput.addEventListener('change', async (e) => {
-        const files = Array.from(e.target.files || []);
-        if (files.length === 0) return;
+    // Quick duration probe helper that never hangs
+    function probeAudioDuration(audioUrl) {
+      return new Promise(resolve => {
+        let resolved = false;
+        const done = (dur) => {
+          if (resolved) return;
+          resolved = true;
+          try {
+            tempAudio.src = '';
+            tempAudio.load();
+          } catch (_) {}
+          resolve(dur || 180);
+        };
+        const tempAudio = new Audio();
+        tempAudio.preload = 'metadata';
+        tempAudio.addEventListener('loadedmetadata', () => {
+          const d = Math.round(tempAudio.duration);
+          done(d && isFinite(d) && d > 0 ? d : 180);
+        }, { once: true });
+        tempAudio.addEventListener('error', () => done(180), { once: true });
+        setTimeout(() => done(180), 350);
+        tempAudio.src = audioUrl;
+      });
+    }
 
-        const newTracks = [];
-        const gradients = [
-          ['#FF512F', '#DD2476'],
-          ['#4776E6', '#8E54E9'],
-          ['#00b09b', '#96c93d'],
-          ['#f857a6', '#ff5858'],
-          ['#1FA2FF', '#12D8FA'],
-          ['#7F00FF', '#E100FF'],
-          ['#F953C6', '#B91D73'],
-          ['#F12711', '#F5AF19']
-        ];
+    // Universal Multi-Song Import Engine
+    let isImportingFiles = false;
+    async function processImportedFiles(fileList) {
+      const files = Array.from(fileList || []).filter(f => {
+        const n = (f.name || '').toLowerCase();
+        return n.endsWith('.mp3') || n.endsWith('.m4a') || n.endsWith('.wav') || 
+               n.endsWith('.flac') || n.endsWith('.ogg') || n.endsWith('.aac') || 
+               n.endsWith('.mp4') || n.endsWith('.wma') || (f.type && f.type.startsWith('audio/'));
+      });
 
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
+      if (files.length === 0) return;
+      if (isImportingFiles) {
+        showToast('Import already in progress...', 'info');
+        return;
+      }
+      isImportingFiles = true;
+
+      const total = files.length;
+      showToast(`Importing ${total} song${total > 1 ? 's' : ''}...`);
+
+      const gradients = [
+        ['#FF512F', '#DD2476'],
+        ['#4776E6', '#8E54E9'],
+        ['#00b09b', '#96c93d'],
+        ['#f857a6', '#ff5858'],
+        ['#1FA2FF', '#12D8FA'],
+        ['#7F00FF', '#E100FF'],
+        ['#F953C6', '#B91D73'],
+        ['#F12711', '#F5AF19']
+      ];
+
+      const newTracks = [];
+
+      // Process files in non-blocking batches of 3
+      const BATCH_SIZE = 3;
+      for (let i = 0; i < total; i += BATCH_SIZE) {
+        const slice = files.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(slice.map(async (file, idx) => {
           let name = file.name.replace(/\.[^/.]+$/, "");
           let artist = 'Local Artist';
           let title = name;
@@ -829,10 +902,10 @@
             }
           } catch (_) {}
 
-          const grad = gradients[Math.floor(Math.random() * gradients.length)];
-          const trackId = 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+          const grad = gradients[(i + idx) % gradients.length];
+          const trackId = 'local_' + Date.now() + '_' + (i + idx) + '_' + Math.random().toString(36).substr(2, 5);
 
-          // Persist the binary audio into IndexedDB for offline airplane-mode playback
+          // Store binary into IndexedDB for persistent offline playback
           if (window.AudioStore && typeof window.AudioStore.save === 'function') {
             await window.AudioStore.save(trackId, file);
           }
@@ -842,20 +915,9 @@
             window.AudioStore.setSessionUrl(trackId, audioUrl);
           }
 
-          let duration = 0;
-          try {
-            const tempAudio = new Audio();
-            tempAudio.src = audioUrl;
-            await new Promise(resolve => {
-              tempAudio.addEventListener('loadedmetadata', () => {
-                duration = Math.round(tempAudio.duration) || 0;
-                resolve();
-              }, { once: true });
-              setTimeout(resolve, 600);
-            });
-          } catch (_) {}
+          const duration = await probeAudioDuration(audioUrl);
 
-          newTracks.push({
+          return {
             id: trackId,
             title,
             artist,
@@ -865,19 +927,36 @@
             thumbnail: coverArt || ((typeof createArtSvg === 'function')
               ? createArtSvg(grad[0], grad[1], title.slice(0, 8).toUpperCase(), artist)
               : ''),
-            audioUrl: '', // IndexedDB provides dynamic session blob URLs
+            audioUrl: '',
             isLocal: true,
             fileName: file.name
-          });
-        }
+          };
+        }));
 
-        const existing = LocalStore.get('catalog', []);
-        const updated = [...newTracks, ...existing];
-        LocalStore.set('catalog', updated);
-        if (typeof loadCatalog === 'function') loadCatalog();
-        renderCatalogTracks();
-        showToast(`Imported ${newTracks.length} song${newTracks.length > 1 ? 's' : ''} into catalog`);
-        fileInput.value = '';
+        newTracks.push(...batchResults);
+      }
+
+      const existing = LocalStore.get('catalog', []);
+      const updated = [...newTracks, ...existing];
+      LocalStore.set('catalog', updated);
+      if (typeof loadCatalog === 'function') loadCatalog();
+      renderCatalogTracks();
+      if (typeof renderHome === 'function') renderHome();
+      showToast(`Successfully imported ${newTracks.length} song${newTracks.length > 1 ? 's' : ''}!`);
+      isImportingFiles = false;
+
+      const fileInput = document.getElementById('catalog-file-input');
+      if (fileInput) fileInput.value = '';
+    }
+    window.processImportedFiles = processImportedFiles;
+
+    // File Importer listener (global & catalog)
+    if (fileInput && !fileInput._bound) {
+      fileInput._bound = true;
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+          processImportedFiles(e.target.files);
+        }
       });
     }
 
@@ -894,9 +973,8 @@
       viewSearch.addEventListener('drop', (e) => {
         e.preventDefault();
         viewSearch.classList.remove('drag-over');
-        if (e.dataTransfer && e.dataTransfer.files && fileInput) {
-          fileInput.files = e.dataTransfer.files;
-          fileInput.dispatchEvent(new Event('change'));
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          processImportedFiles(e.dataTransfer.files);
         }
       });
     }
@@ -905,7 +983,28 @@
     renderCatalogTracks();
   }
 
+  // Globally wire catalog-file-input so buttons on Home, Catalog, and modals work immediately
+  (function initGlobalImportListener() {
+    function bind() {
+      const fileInput = document.getElementById('catalog-file-input');
+      if (fileInput && !fileInput._bound) {
+        fileInput._bound = true;
+        fileInput.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            processImportedFiles(e.target.files);
+          }
+        });
+      }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bind);
+    } else {
+      bind();
+    }
+  })();
+
   window.renderCatalogSearch = renderCatalogSearch;
+  window.processImportedFiles = processImportedFiles;
   window.addToQueue = addToQueue;
   window.renderQueue = renderQueue;
   window.saveQueue = saveQueue;

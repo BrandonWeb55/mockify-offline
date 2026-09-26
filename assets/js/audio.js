@@ -102,7 +102,6 @@
         mbpFill.style.width = mbpPct + '%';
       }
 
-      updateLyricsSync(audio.currentTime);
       saveLastState();
     });
   });
@@ -228,20 +227,7 @@
     }
   });
 
-  /* ── Dynamic Device Detection ── */
-  function getActiveDeviceName() {
-    const ua = navigator.userAgent || '';
-    if (/iPhone/i.test(ua)) return 'iPhone';
-    if (/iPad/i.test(ua)) return 'iPad';
-    if (/Android/i.test(ua)) {
-      if (/Mobile/i.test(ua)) return 'Android Device';
-      return 'Android Tablet';
-    }
-    if (/Macintosh|Mac OS X/i.test(ua)) return 'Mac';
-    if (/Windows/i.test(ua)) return 'Windows PC';
-    if (/Linux/i.test(ua)) return 'Linux Device';
-    return 'This Device';
-  }
+
 
   /* ── Dynamic Theming: Color Quantization & Dominant Color Extraction for Overlay ── */
   function updateNowPlayingTheme(thumbnailUrl) {
@@ -470,36 +456,9 @@
     const dot = document.getElementById('pb-title-dot');
     if (dot) dot.style.display = (t && t.title && t.artist) ? 'inline' : 'none';
 
-    // Active Playback Device Line (Green glyph + device name)
-    const devLine = document.getElementById('pb-device-line');
-    const devName = document.getElementById('pb-device-name');
-    if (devLine && devName) {
-      if (t) {
-        devName.textContent = getActiveDeviceName();
-        devLine.style.display = 'flex';
-      } else {
-        devLine.style.display = 'none';
-      }
-    }
-    
     // Desktop Right Panel Meta
     document.getElementById('rp-title').textContent = t ? (t.title || '') : '';
     document.getElementById('rp-artist').textContent = t ? (t.artist || '') : '';
-
-    const rpProfile = document.getElementById('rp-artist-profile');
-    if (t && t.artist) {
-      rpProfile.style.display = 'flex';
-      document.getElementById('rp-sub-name').textContent = t.artist;
-      const pfpEl = document.getElementById('rp-pfp');
-      if (t.channelPfp) {
-        pfpEl.innerHTML = `<img src="${t.channelPfp}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" alt="" />`;
-      } else {
-        pfpEl.textContent = (t.artist || '?').charAt(0).toUpperCase();
-      }
-      document.getElementById('rp-sub-count').textContent = formatSubs(t.subCount, t.subCountText);
-    } else {
-      rpProfile.style.display = 'none';
-    }
 
     // Thumbnail Artwork
     const img = document.getElementById('pb-thumb-img');
@@ -546,11 +505,6 @@
         ctx = t.album;
       }
       mnpContext.textContent = ctx;
-    }
-
-    const mnpDevName = document.getElementById('mnp-device-name');
-    if (mnpDevName) {
-      mnpDevName.textContent = getActiveDeviceName();
     }
 
     updateLikeButtonUI();
@@ -825,14 +779,7 @@
       });
     }
 
-    // Wire mobile connection status glyph
-    const mobConnect = document.getElementById('mobile-connect-btn');
-    if (mobConnect) {
-      mobConnect.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showToast('Connected to ' + getActiveDeviceName());
-      });
-    }
+
 
     // Tapping track details in player bar opens the full-screen now playing overlay
     const pbLeft = document.querySelector('.pb-left');
@@ -846,7 +793,7 @@
 
     // Tapping floating player bar on mobile opens overlay
     pb.addEventListener('click', (e) => {
-      if (e.target.closest('#btn-play, #btn-next, #btn-prev, #btn-shuffle, #btn-repeat, #progress-slider, #volume-slider, #btn-vol, #btn-lyrics, #btn-now-playing, #mobile-play-toggle, #mobile-connect-btn, #btn-pb-add-playlist')) return;
+      if (e.target.closest('#btn-play, #btn-next, #btn-prev, #btn-shuffle, #btn-repeat, #progress-slider, #volume-slider, #btn-vol, #btn-now-playing, #mobile-play-toggle, #btn-pb-add-playlist')) return;
       openNowPlayingOverlay();
     });
 
@@ -945,15 +892,6 @@
       mnpSlider.addEventListener('touchcancel', endSeek);
     }
 
-    // Overlay Device Indicator click
-    const mnpDev = document.getElementById('mnp-device-indicator');
-    if (mnpDev) {
-      mnpDev.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showToast('Listening on ' + getActiveDeviceName());
-      });
-    }
-
     /* Safe no-op stubs */
     function renderMnpQueue() {}
     function openMnpQueue() {}
@@ -1000,64 +938,6 @@
         }
       });
     }
-
-
-
-    /* ── Now Playing Lyrics Drawer ── */
-    function openMnpLyrics() {
-      const drawer = document.getElementById('mnp-lyrics-drawer');
-      if (!drawer) return;
-      const sub = document.getElementById('mnp-lyrics-subheading');
-      if (sub && S.currentTrack) {
-        sub.textContent = `${S.currentTrack.title} • ${S.currentTrack.artist || ''}`;
-      }
-      drawer.classList.add('open');
-      if (S.currentTrack && typeof window.fetchAndRenderLyrics === 'function') {
-        window.fetchAndRenderLyrics(S.currentTrack);
-      }
-    }
-
-    function closeMnpLyrics() {
-      const drawer = document.getElementById('mnp-lyrics-drawer');
-      if (drawer) drawer.classList.remove('open');
-    }
-    window.openMnpLyrics = openMnpLyrics;
-    window.closeMnpLyrics = closeMnpLyrics;
-
-    const mnpLyricsBtn = document.getElementById('mnp-lyrics-btn');
-    if (mnpLyricsBtn) {
-      mnpLyricsBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openMnpLyrics();
-      });
-    }
-
-    const mnpLyricsClose = document.getElementById('mnp-lyrics-close-btn');
-    if (mnpLyricsClose) {
-      mnpLyricsClose.addEventListener('click', (e) => {
-        e.stopPropagation();
-        closeMnpLyrics();
-      });
-    }
-
-    const lyricsBackBtn = document.getElementById('lyrics-back-btn');
-    if (lyricsBackBtn) {
-      lyricsBackBtn.addEventListener('click', () => {
-        if (typeof window.showView === 'function') {
-          window.showView('home');
-        }
-      });
-    }
-
-    const optLyrics = document.getElementById('mnp-opt-lyrics');
-    if (optLyrics) {
-      optLyrics.addEventListener('click', () => {
-        closeMnpOptions();
-        openMnpLyrics();
-      });
-    }
-
-
 
     const optCancel = document.getElementById('mnp-opt-cancel-btn');
     if (optCancel) optCancel.addEventListener('click', closeMnpOptions);

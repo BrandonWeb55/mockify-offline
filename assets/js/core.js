@@ -8,7 +8,7 @@
   const audio = document.getElementById('audio');
   window.audio = audio;
 
-  /* ── Safe Local Storage Adapter ── */
+  /* ── Safe Local Storage Adapter with Quota Protection ── */
   const LocalStore = {
     get: (key, fallback) => {
       try {
@@ -20,9 +20,29 @@
     },
     set: (key, value) => {
       try {
-        localStorage.setItem('mockify_' + key, JSON.stringify(value));
-        localStorage.setItem('mockify-' + key, JSON.stringify(value));
-      } catch (e) {}
+        const json = JSON.stringify(value);
+        localStorage.setItem('mockify_' + key, json);
+        localStorage.setItem('mockify-' + key, json);
+      } catch (e) {
+        // QuotaExceededError recovery: if storing catalog or playlists, strip heavy data URLs
+        console.warn(`[LocalStore] Quota exceeded on "${key}", executing safe size reduction.`);
+        try {
+          if (Array.isArray(value)) {
+            const stripped = value.map(item => {
+              if (item && item.thumbnail && item.thumbnail.length > 512 && item.thumbnail.startsWith('data:image/')) {
+                // If it's a huge base64 image causing the quota error, replace with SVG fallback placeholder
+                return { ...item, thumbnail: '' };
+              }
+              return item;
+            });
+            const compactJson = JSON.stringify(stripped);
+            localStorage.setItem('mockify_' + key, compactJson);
+            localStorage.setItem('mockify-' + key, compactJson);
+          }
+        } catch (innerErr) {
+          console.error('[LocalStore] Could not persist even after stripping thumbnails:', innerErr);
+        }
+      }
     },
     remove: (key) => {
       try {
@@ -223,8 +243,6 @@
         case 'write-last-state':
           LocalStore.set('last-state', args[0]);
           return { success: true };
-        case 'fetch-lyrics':
-          return { plain: '', synced: null };
         default:
           return null;
       }
@@ -419,18 +437,9 @@
 
     document.querySelectorAll('.playlist-list-item').forEach(p => p.classList.remove('active'));
     
-    const btnLyrics = document.getElementById('btn-lyrics');
-    if (btnLyrics) {
-      if (name === 'lyrics') btnLyrics.classList.add('active');
-      else btnLyrics.classList.remove('active');
-    }
-
     if (name === 'home' && typeof window.renderHome === 'function') window.renderHome();
     if (name === 'search' && typeof window.renderCatalogSearch === 'function') window.renderCatalogSearch();
     if (name === 'library' && typeof window.renderPlaylists === 'function') window.renderPlaylists();
-    if (name === 'lyrics' && S.currentTrack && typeof window.fetchAndRenderLyrics === 'function') {
-      window.fetchAndRenderLyrics(S.currentTrack);
-    }
   }
   window.showView = showView;
 
