@@ -4,6 +4,7 @@
  */
 (function() {
   'use strict';
+  const ipcRenderer = window.ipcRenderer || { invoke: async () => ({}) };
 
   /* ── Greeting ── */
   (function() {
@@ -14,11 +15,11 @@
     }
   })();
 
-  function esc(s) {
-    const d = document.createElement('div');
-    d.textContent = s || '';
-    return d.innerHTML;
-  }
+  const esc = window.esc || function(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  };
+  window.esc = esc;
 
   /* ═══════════════════════════════════════
      HOME VIEW (Offline Music & Recents)
@@ -492,6 +493,14 @@
     playTrack(S.queue[prev], false);
   }
 
+  function saveQueue() {
+    if (typeof ipcRenderer !== 'undefined' && ipcRenderer && ipcRenderer.invoke) {
+      ipcRenderer.invoke('write-queue', { queue: S.queue, queueIndex: S.queueIndex });
+    } else if (typeof LocalStore !== 'undefined' && LocalStore.set) {
+      LocalStore.set('queue', { queue: S.queue, queueIndex: S.queueIndex });
+    }
+  }
+
   /* ═══════════════════════════════════════
      SEARCH & SONG CATALOG VIEW
      ═══════════════════════════════════════ */
@@ -529,7 +538,7 @@
         });
       });
 
-      const query = (input ? input.value : '').trim().toLowerCase();
+      const query = String(input && input.value || '').trim().toLowerCase();
       if (clearBtn) clearBtn.style.display = query ? 'flex' : 'none';
 
       const activeFilter = S.catalogFilter || 'all';

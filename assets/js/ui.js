@@ -1,3 +1,8 @@
+  const esc = window.esc || function(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  };
+
   /* ── Right Panel & Bar Buttons ── */
   const rightPanel = document.getElementById('right-panel');
   const btnNowPlaying = document.getElementById('btn-now-playing');

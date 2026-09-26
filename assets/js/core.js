@@ -6,6 +6,7 @@
   'use strict';
 
   const audio = document.getElementById('audio');
+  window.audio = audio;
 
   /* ── Safe Local Storage Adapter ── */
   const LocalStore = {
@@ -242,8 +243,10 @@
         combined.push(localTrack);
       }
     });
-    S.catalog = combined;
-    return S.catalog;
+    if (typeof S !== 'undefined' && S) {
+      S.catalog = combined;
+    }
+    return combined;
   }
   window.loadCatalog = loadCatalog;
 
@@ -260,7 +263,7 @@
     muted: initialSettings.muted !== undefined ? initialSettings.muted : false,
     currentTrack: null,
     searchResults: [],
-    catalog: loadCatalog(),
+    catalog: [],
     catalogFilter: 'all',
     catalogSort: 'default',
     catalogGridMode: LocalStore.get('catalog-grid-mode', false),
@@ -271,8 +274,20 @@
     settings: initialSettings,
   };
   window.S = S;
+  S.catalog = loadCatalog();
 
   /* ── Utilities ── */
+  function esc(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+  window.esc = esc;
+
   function fmt(s) {
     if (!s || !isFinite(s) || s < 0) return '0:00';
     const m = Math.floor(s / 60);
@@ -294,9 +309,11 @@
 
   /* ── View Switcher ── */
   function showView(name) {
+    if (!name) return;
     S.view = name;
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    document.getElementById('view-' + name)?.classList.add('active');
+    const target = document.getElementById('view-' + name);
+    if (target) target.classList.add('active');
 
     document.querySelectorAll('.nav-item').forEach(n => {
       n.classList.remove('active');
@@ -316,18 +333,33 @@
       else btnLyrics.classList.remove('active');
     }
 
-    if (name === 'home' && typeof renderHome === 'function') renderHome();
-    if (name === 'search' && typeof renderCatalogSearch === 'function') renderCatalogSearch();
-    if (name === 'queue' && typeof renderQueue === 'function') renderQueue();
-    if (name === 'library' && typeof renderPlaylists === 'function') renderPlaylists();
+    if (name === 'home' && typeof window.renderHome === 'function') window.renderHome();
+    if (name === 'search' && typeof window.renderCatalogSearch === 'function') window.renderCatalogSearch();
+    if (name === 'queue' && typeof window.renderQueue === 'function') window.renderQueue();
+    if (name === 'library' && typeof window.renderPlaylists === 'function') window.renderPlaylists();
     if (name === 'lyrics' && S.currentTrack && typeof window.fetchAndRenderLyrics === 'function') {
       window.fetchAndRenderLyrics(S.currentTrack);
     }
   }
   window.showView = showView;
 
+  // Global event delegation for all .nav-item elements (desktop sidebar, mobile bar, header, buttons)
+  document.addEventListener('click', (e) => {
+    const navBtn = e.target.closest('.nav-item');
+    if (navBtn && navBtn.dataset && navBtn.dataset.view) {
+      e.preventDefault();
+      showView(navBtn.dataset.view);
+    }
+  });
+
+  // Direct element binding for existing nav items
   document.querySelectorAll('.nav-item').forEach(n => {
-    n.addEventListener('click', () => showView(n.dataset.view));
+    n.addEventListener('click', (e) => {
+      if (n.dataset && n.dataset.view) {
+        e.preventDefault();
+        showView(n.dataset.view);
+      }
+    });
   });
 
 })();
