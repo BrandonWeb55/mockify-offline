@@ -33,6 +33,140 @@
   };
   window.LocalStore = LocalStore;
 
+  /* ── Native IndexedDB Audio Binary Storage (Persists Offline & Airplane Mode) ── */
+  const AudioStore = {
+    dbPromise: null,
+    sessionUrls: new Map(),
+
+    getDB: function() {
+      if (!this.dbPromise) {
+        this.dbPromise = new Promise((resolve) => {
+          if (typeof indexedDB === 'undefined') {
+            return resolve(null);
+          }
+          try {
+            const req = indexedDB.open('mockify_audio_vault', 1);
+            req.onupgradeneeded = (e) => {
+              const db = e.target.result;
+              if (!db.objectStoreNames.contains('audio_blobs')) {
+                db.createObjectStore('audio_blobs');
+              }
+            };
+            req.onsuccess = (e) => resolve(e.target.result);
+            req.onerror = (e) => {
+              console.warn('[AudioStore] IndexedDB open error:', e);
+              resolve(null);
+            };
+          } catch (err) {
+            console.warn('[AudioStore] IndexedDB exception:', err);
+            resolve(null);
+          }
+        });
+      }
+      return this.dbPromise;
+    },
+
+    save: async function(id, blobOrFile) {
+      if (!id || !blobOrFile) return false;
+      try {
+        const db = await this.getDB();
+        if (!db) return false;
+        return new Promise((resolve) => {
+          try {
+            const tx = db.transaction('audio_blobs', 'readwrite');
+            const store = tx.objectStore('audio_blobs');
+            const req = store.put(blobOrFile, String(id));
+            req.onsuccess = () => resolve(true);
+            req.onerror = () => resolve(false);
+          } catch (e) {
+            resolve(false);
+          }
+        });
+      } catch (e) {
+        return false;
+      }
+    },
+
+    get: async function(id) {
+      if (!id) return null;
+      try {
+        const db = await this.getDB();
+        if (!db) return null;
+        return new Promise((resolve) => {
+          try {
+            const tx = db.transaction('audio_blobs', 'readonly');
+            const store = tx.objectStore('audio_blobs');
+            const req = store.get(String(id));
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => resolve(null);
+          } catch (e) {
+            resolve(null);
+          }
+        });
+      } catch (e) {
+        return null;
+      }
+    },
+
+    delete: async function(id) {
+      if (!id) return false;
+      const idStr = String(id);
+      if (this.sessionUrls.has(idStr)) {
+        try { URL.revokeObjectURL(this.sessionUrls.get(idStr)); } catch (_) {}
+        this.sessionUrls.delete(idStr);
+      }
+      try {
+        const db = await this.getDB();
+        if (!db) return false;
+        return new Promise((resolve) => {
+          try {
+            const tx = db.transaction('audio_blobs', 'readwrite');
+            const store = tx.objectStore('audio_blobs');
+            const req = store.delete(idStr);
+            req.onsuccess = () => resolve(true);
+            req.onerror = () => resolve(false);
+          } catch (e) {
+            resolve(false);
+          }
+        });
+      } catch (e) {
+        return false;
+      }
+    },
+
+    setSessionUrl: function(id, url) {
+      if (id && url) this.sessionUrls.set(String(id), url);
+    },
+
+    getTrackAudioUrl: async function(track) {
+      if (!track) return '';
+      const id = String(track.id || '');
+      // 1. Return active live session object URL if available
+      if (id && this.sessionUrls.has(id)) {
+        return this.sessionUrls.get(id);
+      }
+      // 2. Hydrate from IndexedDB binary blob
+      if (id) {
+        const blob = await this.get(id);
+        if (blob && (blob instanceof Blob || (blob.size && blob.slice))) {
+          try {
+            const freshUrl = URL.createObjectURL(blob);
+            this.sessionUrls.set(id, freshUrl);
+            return freshUrl;
+          } catch (e) {
+            console.warn('[AudioStore] URL.createObjectURL error:', e);
+          }
+        }
+      }
+      // 3. Persistent non-blob URLs
+      if (track.audioUrl && !track.audioUrl.startsWith('blob:')) {
+        return track.audioUrl;
+      }
+      return '';
+    }
+  };
+  window.AudioStore = AudioStore;
+
   /* ── IPC Shim for Zero-Error Web Compatibility ── */
   const ipcRenderer = {
     invoke: async (channel, ...args) => {
@@ -79,7 +213,7 @@
           const ls = LocalStore.get('last-state', null) || (function() {
             try { return JSON.parse(localStorage.getItem('mockify-last-state')); } catch (_) { return null; }
           })();
-          if (ls && ls.track && (String(ls.track.id).startsWith('catalog-song-') || ls.track.isHardcoded || (ls.track.audioUrl && ls.track.audioUrl.startsWith('blob:')))) {
+          if (ls && ls.track && (String(ls.track.id).startsWith('catalog-song-') || ls.track.isHardcoded)) {
             LocalStore.remove('last-state');
             try { localStorage.removeItem('mockify-last-state'); } catch (_) {}
             return null;

@@ -1649,27 +1649,35 @@
           fetchAndRenderLyrics(state.track);
         }
 
-        const audioSrc = state.track.audioUrl || state.track.src || state.track.url;
-        // Only set audio.src for persistent URLs. Blob URLs expire across reloads and cause media errors.
-        if (audioSrc && typeof audioSrc === 'string' && !audioSrc.startsWith('blob:') && audioSrc.trim() !== '') {
-          S.currentTrack.audioUrl = audioSrc;
-          
-          const onMeta = () => {
-            audio.removeEventListener('loadedmetadata', onMeta);
-            if (state.currentTime > 0 && state.currentTime < (audio.duration || 9999)) {
-              audio.currentTime = state.currentTime;
-              const slider = document.getElementById('progress-slider');
-              if (slider) slider.value = state.currentTime;
-              const curEl = document.getElementById('time-cur');
-              if (curEl) curEl.textContent = fmt(state.currentTime);
-              const pct = audio.duration ? (state.currentTime / audio.duration) * 100 : 0;
-              if (slider) updateSliderFill(slider, pct);
-            }
-          };
-
-          audio.addEventListener('loadedmetadata', onMeta);
-          audio.src = audioSrc;
-        }
+        (async () => {
+          let audioSrc = '';
+          if (window.AudioStore && typeof window.AudioStore.getTrackAudioUrl === 'function') {
+            audioSrc = await window.AudioStore.getTrackAudioUrl(state.track);
+          }
+          if (!audioSrc && state.track.audioUrl && !state.track.audioUrl.startsWith('blob:')) {
+            audioSrc = state.track.audioUrl;
+          }
+          if (!audioSrc && (state.track.src || state.track.url)) {
+            audioSrc = state.track.src || state.track.url;
+          }
+          if (audioSrc && audioSrc.trim() !== '') {
+            S.currentTrack.audioUrl = audioSrc;
+            const onMeta = () => {
+              audio.removeEventListener('loadedmetadata', onMeta);
+              if (state.currentTime > 0 && state.currentTime < (audio.duration || 9999)) {
+                try { audio.currentTime = state.currentTime; } catch (_) {}
+                const slider = document.getElementById('progress-slider');
+                if (slider) slider.value = state.currentTime;
+                const curEl = document.getElementById('time-cur');
+                if (curEl) curEl.textContent = fmt(state.currentTime);
+                const pct = audio.duration ? (state.currentTime / audio.duration) * 100 : 0;
+                if (slider) updateSliderFill(slider, pct);
+              }
+            };
+            audio.addEventListener('loadedmetadata', onMeta);
+            audio.src = audioSrc;
+          }
+        })();
       }
     } catch (e) {
       console.log('[Init] Could not restore last track state:', e);
@@ -1684,16 +1692,24 @@
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
-    let dpr = Math.max(1, window.devicePixelRatio || 1);
-    let width = window.innerWidth;
-    let height = window.innerHeight;
+    function getViewportSize() {
+      const w = Math.max(320, window.innerWidth || (document.documentElement ? document.documentElement.clientWidth : 0) || (document.body ? document.body.clientWidth : 360));
+      const h = Math.max(480, window.innerHeight || (document.documentElement ? document.documentElement.clientHeight : 0) || (document.body ? document.body.clientHeight : 640));
+      return { w, h };
+    }
+
+    const initSize = getViewportSize();
+    let dpr = Math.min(2.5, Math.max(1, window.devicePixelRatio || 1));
+    let width = initSize.w;
+    let height = initSize.h;
 
     function resizeCanvas() {
-      const newDpr = Math.max(1, window.devicePixelRatio || 1);
-      const newWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth || 360;
-      const newHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight || 640;
+      const size = getViewportSize();
+      const newDpr = Math.min(2.5, Math.max(1, window.devicePixelRatio || 1));
+      const newWidth = size.w;
+      const newHeight = size.h;
 
-      const dimsChanged = (width !== newWidth || height !== newHeight || dpr !== newDpr);
+      const dimsChanged = (Math.abs(width - newWidth) > 2 || Math.abs(height - newHeight) > 2 || dpr !== newDpr);
       dpr = newDpr;
       width = newWidth;
       height = newHeight;
@@ -1702,18 +1718,21 @@
       canvas.height = Math.round(height * dpr);
       canvas.style.width = width + 'px';
       canvas.style.height = height + 'px';
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.scale(dpr, dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       if (dimsChanged || stars.length === 0) {
         initStars();
       }
     }
 
-    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('resize', resizeCanvas, { passive: true });
     window.addEventListener('orientationchange', () => {
-      setTimeout(resizeCanvas, 150);
+      setTimeout(resizeCanvas, 100);
+      setTimeout(resizeCanvas, 300);
     });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', resizeCanvas, { passive: true });
+    }
 
     function hexToRgb(hex) {
       if (!hex || hex[0] !== '#') return { r: 255, g: 255, b: 255 };
@@ -1904,9 +1923,11 @@
     /* ── Stars Initialization ── */
     let stars = [];
     function initStars() {
+      const w = Math.max(320, width);
+      const h = Math.max(480, height);
       stars = [];
       const density = Math.max(100, S.settings.spaceDensity || 300);
-      const count = Math.max(80, Math.floor((width * height) / Math.max(700, 560000 / density)));
+      const count = Math.max(80, Math.floor((w * h) / Math.max(700, 560000 / density)));
       const sizeMult = Math.max(0.7, (S.settings.spaceSize || 10) / 10);
 
       for (let i = 0; i < count; i++) {
@@ -1934,8 +1955,8 @@
         }
 
         const colorObj = pickStarColor();
-        const originX = Math.random() * width;
-        const originY = Math.random() * height;
+        const originX = Math.random() * w;
+        const originY = Math.random() * h;
 
         stars.push({
           originX,
@@ -2128,6 +2149,9 @@
 
       // Audio Bass / Kick Pulse value [0.0 - 1.0]
       const pulse = getBassPulse();
+
+      // Ensure pristine coordinate transform every single frame
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       // Render clear uniform cosmic background with no top-heavy blurry nebula blob
       ctx.fillStyle = '#030408';

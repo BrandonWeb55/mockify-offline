@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mockify-offline-v2.9';
+const CACHE_NAME = 'mockify-offline-v3.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -13,7 +13,7 @@ const ASSETS_TO_CACHE = [
   './assets/js/ui.js'
 ];
 
-// Install: Cache all offline shell assets
+// Install: Cache all offline shell assets immediately
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
@@ -36,37 +36,71 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch: Network-first with offline cache fallback
+// Fetch: Stale-While-Revalidate with ignoreSearch for local assets, fallback for offline navigations
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
 
-  // If request is for audio blobs or external APIs, bypass service worker
-  if (url.protocol === 'blob:' || url.protocol === 'data:') {
+  // If request is for audio blobs, media, or data URLs, bypass service worker
+  if (url.protocol === 'blob:' || url.protocol === 'data:' || url.pathname.endsWith('.mp3') || url.pathname.endsWith('.wav')) {
     return;
   }
 
-  // Network-first strategy: Always fetch latest files when connected, fallback to cache when offline
+  // Handle HTML navigation: network-first with cache fallback
+  if (event.request.mode === 'navigate' || event.request.headers.get('accept')?.includes('text/html')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match('./index.html', { ignoreSearch: true })
+            .then((res) => res || caches.match('./', { ignoreSearch: true }));
+        })
+    );
+    return;
+  }
+
+  // Handle local app assets (CSS, JS, images, icons):
+  // Cache-first / Stale-While-Revalidate with ignoreSearch guarantees 100% offline availability in airplane mode
+  if (url.origin === self.location.origin) {
+    event.respondWith(
+      caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
+        const fetchPromise = fetch(event.request)
+          .then((networkResponse) => {
+            if (networkResponse && (networkResponse.status === 200 || networkResponse.type === 'opaque')) {
+              const clone = networkResponse.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            }
+            return networkResponse;
+          })
+          .catch(() => null);
+
+        // Return instant cached response if present; otherwise await network
+        return cachedResponse || fetchPromise.then((res) => {
+          if (res) return res;
+          return caches.match(url.pathname, { ignoreSearch: true });
+        });
+      })
+    );
+    return;
+  }
+
+  // External requests (e.g. fonts): try fetch, fallback to cache
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
         if (networkResponse && (networkResponse.status === 200 || networkResponse.type === 'opaque')) {
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
         return networkResponse;
       })
-      .catch(() => {
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) return cachedResponse;
-          // If offline and request is an HTML navigation, fallback to root
-          if (event.request.headers.get('accept')?.includes('text/html')) {
-            return caches.match('./index.html') || caches.match('./');
-          }
-        });
-      })
+      .catch(() => caches.match(event.request, { ignoreSearch: true }))
   );
 });

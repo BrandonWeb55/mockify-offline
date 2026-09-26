@@ -687,6 +687,8 @@
         playTrack(S.queue[0], false);
       } else if (S.recent && S.recent.length > 0 && S.recent[0]) {
         playTrack(S.recent[0], false);
+      } else if (S.catalog && S.catalog.length > 0 && S.catalog[0]) {
+        playTrack(S.catalog[0], false);
       }
       return;
     }
@@ -814,6 +816,8 @@
             playTrack(S.queue[0], false);
           } else if (S.recent && S.recent.length > 0 && S.recent[0]) {
             playTrack(S.recent[0], false);
+          } else if (S.catalog && S.catalog.length > 0 && S.catalog[0]) {
+            playTrack(S.catalog[0], false);
           }
           return;
         }

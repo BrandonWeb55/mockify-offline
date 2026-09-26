@@ -200,6 +200,9 @@
             const saved = LocalStore.get('catalog', []);
             const updated = saved.filter(t => String(t.id) !== String(btn.dataset.id));
             LocalStore.set('catalog', updated);
+            if (window.AudioStore && typeof window.AudioStore.delete === 'function') {
+              window.AudioStore.delete(btn.dataset.id);
+            }
             if (typeof loadCatalog === 'function') loadCatalog();
             if (typeof renderCatalogSearch === 'function') renderCatalogSearch();
             showToast('Removed from catalog');
@@ -338,7 +341,16 @@
       Object.assign(S.queue[S.queueIndex], track);
     }
 
-    let audioSource = track.audioUrl || track.src || track.url;
+    let audioSource = '';
+    if (window.AudioStore && typeof window.AudioStore.getTrackAudioUrl === 'function') {
+      audioSource = await window.AudioStore.getTrackAudioUrl(track);
+    }
+    if (!audioSource && track.audioUrl && !track.audioUrl.startsWith('blob:')) {
+      audioSource = track.audioUrl;
+    }
+    if (!audioSource && (track.src || track.url)) {
+      audioSource = track.src || track.url;
+    }
     if (!audioSource) {
       audioSource = getOrGenerateSyntheticAudio(track);
     }
@@ -374,6 +386,19 @@
     } catch (err) {
       if (currentReqId !== activePlayRequestId) return;
       console.error('[Offline Audio Playback Error]', err);
+      // Fallback: if audio source failed, try synthetic offline sound
+      try {
+        const synth = getOrGenerateSyntheticAudio(track);
+        if (synth && audio.src !== synth) {
+          audio.src = synth;
+          audio.load();
+          await audio.play();
+          S.isLoading = false;
+          S.isPlaying = true;
+          updatePlayerBar();
+          return;
+        }
+      } catch (_) {}
       S.isLoading = false;
       S.isPlaying = false;
       updatePlayerBar();
@@ -592,6 +617,9 @@
                 const saved = LocalStore.get('catalog', []);
                 const updated = saved.filter(t => String(t.id) !== String(btn.dataset.id));
                 LocalStore.set('catalog', updated);
+                if (window.AudioStore && typeof window.AudioStore.delete === 'function') {
+                  window.AudioStore.delete(btn.dataset.id);
+                }
                 if (typeof loadCatalog === 'function') loadCatalog();
                 renderCatalogTracks();
                 showToast('Removed from catalog');
@@ -803,7 +831,16 @@
 
           const grad = gradients[Math.floor(Math.random() * gradients.length)];
           const trackId = 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+
+          // Persist the binary audio into IndexedDB for offline airplane-mode playback
+          if (window.AudioStore && typeof window.AudioStore.save === 'function') {
+            await window.AudioStore.save(trackId, file);
+          }
+
           const audioUrl = URL.createObjectURL(file);
+          if (window.AudioStore && typeof window.AudioStore.setSessionUrl === 'function') {
+            window.AudioStore.setSessionUrl(trackId, audioUrl);
+          }
 
           let duration = 0;
           try {
@@ -828,7 +865,7 @@
             thumbnail: coverArt || ((typeof createArtSvg === 'function')
               ? createArtSvg(grad[0], grad[1], title.slice(0, 8).toUpperCase(), artist)
               : ''),
-            audioUrl,
+            audioUrl: '', // IndexedDB provides dynamic session blob URLs
             isLocal: true,
             fileName: file.name
           });
